@@ -395,3 +395,71 @@ export async function verifyUserController(req: Request, res: Response, next: Ne
     next(error)
   }
 }
+
+export async function deleteUserController(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const authHeader = req.headers.authorization
+    
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      res.status(HttpStatusCode.Unauthorized).send({
+        success: false,
+        message: 'Access token required'
+      })
+      return
+    }
+
+    const token = authHeader.substring(7) // Remove 'Bearer ' prefix
+
+    try {
+      const decoded = jwt.verify(token, JWT_SECRET) as DecodedJWT
+      
+      // Verify user exists
+      const user = await models.User.findById(decoded.userId)
+      if (!user) {
+        res.status(HttpStatusCode.NotFound).send({
+          success: false,
+          message: 'User not found'
+        })
+        return
+      }
+
+      // Send account deletion notification email
+      const resendService = new ResendEmail()
+      await resendService.sendAccountDeletionEmail(user.name, user.email)
+
+      // Delete all user's workspaces (soft delete)
+      await models.Workspace.updateMany(
+        { 
+          $or: [
+            { ownerId: user._id },
+            { companyId: user._id },
+            { 'members.userId': user._id }
+          ],
+          deletedAt: null
+        },
+        { 
+          deletedAt: new Date(),
+          status: 'archived'
+        }
+      )
+
+      // Delete the user
+      await models.User.findByIdAndDelete(user._id)
+
+      res.status(HttpStatusCode.Ok).send({
+        success: true,
+        message: 'User and all associated data deleted successfully'
+      })
+      return
+    } catch (jwtError) {
+      res.status(HttpStatusCode.Unauthorized).send({
+        success: false,
+        message: 'Invalid or expired token'
+      })
+      return
+    }
+  } catch (error: unknown) {
+    console.error('Error in deleteUserController:', error)
+    next(error)
+  }
+}
