@@ -1,12 +1,18 @@
 import express, { Application } from 'express'
 import auth from './auth.route'
+import workspace from './workspace.route'
 
 function routerApi(app: Application) {
   const router = express.Router();
+  
+  router.use('/auth', auth);
 
-  app.use("/api", router);
+  router.use('/workspace', workspace)
 
-  app.use('/api/auth', auth)
+
+
+
+  app.use('/api', router);
 }
 
 export default routerApi;
