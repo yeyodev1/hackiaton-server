@@ -1,9 +1,11 @@
 import type { Response, Request, NextFunction } from 'express'
 import bcrypt from 'bcryptjs'
-import jwt, { SignOptions } from 'jsonwebtoken'
+import jwt from 'jsonwebtoken'
 import { Types } from 'mongoose'
 import { HttpStatusCode } from 'axios'
+import crypto from 'crypto'
 import models from '../models'
+import ResendEmail from '../services/resend.service'
 
 // JWT Configuration with proper typing
 const JWT_SECRET: string = process.env.JWT_SECRET || 'your-secret-key'
@@ -28,9 +30,9 @@ export async function registerUserController(req: Request, res: Response, next: 
 
     // Validate required fields
     if (!name || !email || !password || !companyName || !country) {
-      res.status(400).send({
+      res.status(HttpStatusCode.BadRequest).send({
         success: false,
-        message: 'All fields are required'
+        message: 'Todos los campos son requeridos'
       })
       return
     }
@@ -38,18 +40,18 @@ export async function registerUserController(req: Request, res: Response, next: 
     // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     if (!emailRegex.test(email)) {
-      res.status(400).send({
+      res.status(HttpStatusCode.BadRequest).send({
         success: false,
-        message: 'Invalid email format'
+        message: 'Formato de email inválido'
       })
       return
     }
 
     // Validate password strength
     if (password.length < 6) {
-      res.status(400).send({
+      res.status(HttpStatusCode.BadRequest).send({
         success: false,
-        message: 'Password must be at least 6 characters long'
+        message: 'La contraseña debe tener al menos 6 caracteres'
       })
       return
     }
@@ -57,9 +59,9 @@ export async function registerUserController(req: Request, res: Response, next: 
     // Check if user already exists
     const existingUser = await models.User.findOne({ email: email.toLowerCase() })
     if (existingUser) {
-      res.status(409).send({
+      res.status(HttpStatusCode.Conflict).send({
         success: false,
-        message: 'User already exists with this email'
+        message: 'Ya existe un usuario con este email'
       })
       return
     }
@@ -76,7 +78,29 @@ export async function registerUserController(req: Request, res: Response, next: 
       country: country.trim()
     })
 
+    // Generate verification token
+    const verificationToken = crypto.randomBytes(32).toString('hex')
+    const verificationTokenExpires = new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 hours
+    
+    // Add verification token to user
+    newUser.verificationToken = verificationToken
+    newUser.verificationTokenExpires = verificationTokenExpires
+    
     const savedUser = await newUser.save()
+
+    // Send verification email
+    console.log('previo a enviar email')
+    try {
+      const emailService = new ResendEmail()
+      await emailService.sendVerificationEmail(
+        savedUser.name,
+        savedUser.email,
+        verificationToken
+      )
+    } catch (emailError) {
+      console.error('Error sending verification email:', emailError)
+      // Don't fail registration if email fails, but log it
+    }
 
     // Generate JWT token with proper typing
     const payload: JWTPayload = {
@@ -84,15 +108,11 @@ export async function registerUserController(req: Request, res: Response, next: 
       email: savedUser.email
     }
 
-    const signOptions: SignOptions = {
-      expiresIn: JWT_EXPIRES_IN
-    }
+    const token = jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN })
 
-    const token = jwt.sign(payload, JWT_SECRET, signOptions)
-
-    res.status(201).send({
+    res.status(HttpStatusCode.Created).send({
       success: true,
-      message: 'User registered successfully',
+      message: 'Usuario registrado exitosamente. Por favor verifica tu email para activar tu cuenta.',
       data: {
         user: {
           id: (savedUser._id as Types.ObjectId).toString(),
@@ -100,6 +120,7 @@ export async function registerUserController(req: Request, res: Response, next: 
           email: savedUser.email,
           companyName: savedUser.companyName,
           country: savedUser.country,
+          isVerified: savedUser.isVerified,
           createdAt: savedUser.createdAt,
           updatedAt: savedUser.updatedAt
         },
@@ -135,12 +156,21 @@ export async function loginUserController(req: Request, res: Response, next: Nex
       return
     }
 
+    // Check if user is verified
+    if (!user.isVerified) {
+      res.status(HttpStatusCode.Forbidden).send({
+        success: false,
+        message: 'Tu cuenta no está verificada. Por favor verifica tu email antes de iniciar sesión.'
+      })
+      return
+    }
+
     // Verify password
     const isPasswordValid = await bcrypt.compare(password, user.password)
     if (!isPasswordValid) {
-      res.status(401).send({
+      res.status(HttpStatusCode.Unauthorized).send({
         success: false,
-        message: 'Invalid credentials'
+        message: 'Credenciales inválidas'
       })
       return
     }
@@ -151,11 +181,7 @@ export async function loginUserController(req: Request, res: Response, next: Nex
       email: user.email
     }
 
-    const signOptions: SignOptions = {
-      expiresIn: JWT_EXPIRES_IN
-    }
-
-    const token = jwt.sign(payload, JWT_SECRET, signOptions)
+    const token = jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN })
 
     res.status(HttpStatusCode.Ok).send({
       success: true,
@@ -167,6 +193,7 @@ export async function loginUserController(req: Request, res: Response, next: Nex
           email: user.email,
           companyName: user.companyName,
           country: user.country,
+          isVerified: user.isVerified,
           createdAt: user.createdAt,
           updatedAt: user.updatedAt
         },
@@ -176,6 +203,69 @@ export async function loginUserController(req: Request, res: Response, next: Nex
   } catch (error: unknown) {
     console.error('Error in loginUserController:', error)
     next(error)
+  }
+}
+
+export async function verifyEmailController(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const { token } = req.params
+
+    if (!token) {
+      res.status(HttpStatusCode.BadRequest).send({
+        success: false,
+        message: 'Token de verificación requerido'
+      })
+      return
+    }
+
+    // Find user with verification token
+    const user = await models.User.findOne({
+      verificationToken: token,
+      verificationTokenExpires: { $gt: new Date() }
+    })
+
+    if (!user) {
+      res.status(HttpStatusCode.BadRequest).send({
+        success: false,
+        message: 'Token de verificación inválido o expirado'
+      })
+      return
+    }
+
+    // Update user as verified and remove verification token
+    user.isVerified = true
+    user.verificationToken = undefined
+    user.verificationTokenExpires = undefined
+    await user.save()
+
+    res.status(HttpStatusCode.Ok).send({
+      success: true,
+      message: 'Email verificado exitosamente. Ya puedes iniciar sesión.',
+      data: {
+        user: {
+          id: (user._id as Types.ObjectId).toString(),
+          name: user.name,
+          email: user.email,
+          companyName: user.companyName,
+          country: user.country,
+          isVerified: user.isVerified,
+          createdAt: user.createdAt,
+          updatedAt: user.updatedAt
+        }
+      }
+    })
+    return
+  } catch (error) {
+    console.error('Error verifying email:', error)
+    res.status(HttpStatusCode.InternalServerError).send({
+      success: false,
+      message: 'Error interno del servidor'
+    })
+    return
   }
 }
 
