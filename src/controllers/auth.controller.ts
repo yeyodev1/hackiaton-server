@@ -88,6 +88,46 @@ export async function registerUserController(req: Request, res: Response, next: 
     
     const savedUser = await newUser.save()
 
+    // Create default workspace for the user
+    const defaultWorkspace = new models.Workspace({
+      name: companyName.trim(),
+      companyId: savedUser._id,
+      ownerId: savedUser._id,
+      status: 'active',
+      isFullyConfigured: false,
+      members: [{
+        userId: savedUser._id,
+        role: 'owner'
+      }],
+      settings: {
+        country: country as 'Ecuador' | 'Peru' | 'Colombia',
+        legalDocuments: {},
+        analysisConfig: {
+          riskThresholds: {
+            legal: 0.7,
+            technical: 0.7,
+            financial: 0.8
+          },
+          scoringWeights: {
+            compliance: 0.4,
+            risk: 0.3,
+            completeness: 0.3
+          }
+        },
+        nlpSettings: {
+          language: 'es',
+          extractionRules: []
+        }
+      },
+      usage: {
+        documentCount: 0,
+        analysisCount: 0
+      },
+      notifications: {}
+    })
+
+    const savedWorkspace = await defaultWorkspace.save()
+
     // Send verification email
     console.log('previo a enviar email')
     try {
@@ -112,7 +152,7 @@ export async function registerUserController(req: Request, res: Response, next: 
 
     res.status(HttpStatusCode.Created).send({
       success: true,
-      message: 'Usuario registrado exitosamente. Por favor verifica tu email para activar tu cuenta.',
+      message: 'User registered successfully. Please verify your email to activate your account.',
       data: {
         user: {
           id: (savedUser._id as Types.ObjectId).toString(),
@@ -123,6 +163,13 @@ export async function registerUserController(req: Request, res: Response, next: 
           isVerified: savedUser.isVerified,
           createdAt: savedUser.createdAt,
           updatedAt: savedUser.updatedAt
+        },
+        workspace: {
+          id: (savedWorkspace._id as Types.ObjectId).toString(),
+          name: savedWorkspace.name,
+          isFullyConfigured: savedWorkspace.isFullyConfigured,
+          status: savedWorkspace.status,
+          country: savedWorkspace.settings.country
         },
         token
       }
