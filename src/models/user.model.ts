@@ -7,6 +7,8 @@ export interface IUser extends Document {
   companyName: string
   country: string
   isVerified: boolean
+  verificationToken?: string
+  verificationTokenExpires?: Date
   createdAt: Date
   updatedAt: Date
 }
@@ -52,6 +54,14 @@ const userSchema = new Schema<IUser>({
     type: Boolean,
     default: false,
     required: true
+  },
+  verificationToken: {
+    type: String,
+    required: false
+  },
+  verificationTokenExpires: {
+    type: Date,
+    required: false
   }
 }, {
   timestamps: true,
