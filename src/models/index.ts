@@ -1,6 +1,8 @@
 
+import User from './user.model'
+
 const models = {
-  // user, mock data
+  User
 };
 
 export default models;
