@@ -1,8 +1,9 @@
-
-import User from './user.model'
+import { User } from './user.model'
+import { Workspace } from './workspace.model'
 
 const models = {
-  User
-};
+  User,
+  Workspace
+}
 
 export default models;
