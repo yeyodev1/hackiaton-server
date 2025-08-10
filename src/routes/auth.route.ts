@@ -1,11 +1,17 @@
-import express from 'express'
-import { loginUserController, registerUserController, verifyUserController } from '../controllers/auth.controller'
+import { Router } from 'express'
+import {
+  registerUserController,
+  loginUserController,
+  verifyUserController,
+  verifyEmailController
+} from '../controllers/auth.controller'
 
-const router = express.Router()
+const router = Router()
 
 // Authentication routes
 router.post('/register', registerUserController)
 router.post('/login', loginUserController)
-router.get('/verify/:token', verifyUserController)
+router.get('/verify-email/:token', verifyEmailController)
+router.get('/verify', verifyUserController)
 
 export default router
