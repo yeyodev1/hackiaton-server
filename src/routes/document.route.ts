@@ -1,5 +1,6 @@
 import express from "express"
 import { upload } from "../middlewares/upload.middleware"
+import { authenticateToken } from "../middlewares/auth.middleware"
 import {
   uploadDocumentController,
   getWorkspaceDocumentsController,
@@ -9,12 +10,12 @@ import {
 const router = express.Router()
 
 // Upload a new document (contract, pliego, propuesta)
-router.post('/upload', upload.single('document'), uploadDocumentController)
+router.post('/upload', authenticateToken, upload.single('document'), uploadDocumentController)
 
 // Get all documents in workspace
-router.get('/workspace-documents', getWorkspaceDocumentsController)
+router.get('/workspace-documents', authenticateToken, getWorkspaceDocumentsController)
 
 // Delete a document
-router.delete('/:documentId', deleteDocumentController)
+router.delete('/:documentId', authenticateToken, deleteDocumentController)
 
 export default router
