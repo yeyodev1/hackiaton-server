@@ -209,32 +209,34 @@ class LLMService {
   }
 
   async generateDocumentInsights(analysis: any, question?: string): Promise<DocumentInsights> {
-    const systemPrompt = `You are an expert legal and business analyst specializing in document review for government contracts and tenders. 
+    const systemPrompt = `Eres un analista legal y empresarial experto especializado en revisión de documentos para contratos gubernamentales y licitaciones.
 
-Your task is to analyze the provided document analysis and generate actionable insights.
+Tu tarea es analizar el análisis de documento proporcionado y generar insights accionables.
 
-Focus on:
-1. Legal compliance and regulatory adherence
-2. Financial and commercial risks
-3. Technical requirements and feasibility
-4. Operational considerations
-5. Competitive advantages or disadvantages
+Enfócate en:
+1. Cumplimiento legal y adherencia regulatoria
+2. Riesgos financieros y comerciales
+3. Requisitos técnicos y factibilidad
+4. Consideraciones operacionales
+5. Ventajas o desventajas competitivas
 
-Provide your response in JSON format with the following structure:
+Proporciona tu respuesta en formato JSON con la siguiente estructura:
 {
-  "summary": "Brief overview of the document analysis",
-  "keyFindings": ["Finding 1", "Finding 2", "Finding 3"],
-  "recommendations": ["Recommendation 1", "Recommendation 2", "Recommendation 3"],
+  "summary": "Resumen breve del análisis del documento",
+  "keyFindings": ["Hallazgo 1", "Hallazgo 2", "Hallazgo 3"],
+  "recommendations": ["Recomendación 1", "Recomendación 2", "Recomendación 3"],
   "riskAssessment": {
     "level": "low|medium|high",
     "score": 1-10,
     "factors": ["factor1", "factor2"]
   }
-}`
+}
+
+IMPORTANTE: Toda tu respuesta debe estar completamente en español.`
 
     const userMessage = question 
-      ? `Please analyze this document with focus on: ${question}\n\nDocument Analysis: ${JSON.stringify(analysis, null, 2)}`
-      : `Please provide comprehensive insights for this document analysis:\n\nDocument Analysis: ${JSON.stringify(analysis, null, 2)}`
+      ? `Por favor analiza este documento con enfoque en: ${question}\n\nAnálisis del Documento: ${JSON.stringify(analysis, null, 2)}`
+      : `Por favor proporciona insights exhaustivos para este análisis de documento:\n\nAnálisis del Documento: ${JSON.stringify(analysis, null, 2)}`
 
     const messages: ChatMessage[] = [
       { role: 'user', content: userMessage }
@@ -248,8 +250,8 @@ Provide your response in JSON format with the following structure:
       // Fallback if JSON parsing fails
       return {
         summary: response,
-        keyFindings: ['Analysis completed - see summary for details'],
-        recommendations: ['Review the detailed analysis provided'],
+        keyFindings: ['Análisis completado - ver resumen para detalles'],
+        recommendations: ['Revisar el análisis detallado proporcionado'],
         riskAssessment: {
           level: 'medium',
           score: 5,
@@ -260,44 +262,46 @@ Provide your response in JSON format with the following structure:
   }
 
   async generateComparisonInsights(analyses: any[], question?: string): Promise<ComparisonInsights> {
-    const systemPrompt = `You are an expert legal and business analyst specializing in comparative analysis of government contracts and tender documents.
+    const systemPrompt = `Eres un analista legal y empresarial experto especializado en análisis comparativo de contratos gubernamentales y documentos de licitación.
 
-Your task is to compare multiple document analyses and provide strategic insights for decision-making.
+Tu tarea es comparar múltiples análisis de documentos y proporcionar insights estratégicos para la toma de decisiones.
 
-Focus on:
-1. Comparative risk assessment
-2. Legal and regulatory compliance differences
-3. Financial implications and cost-benefit analysis
-4. Technical requirements comparison
-5. Strategic recommendations for selection
+Enfócate en:
+1. Evaluación comparativa de riesgos
+2. Diferencias en cumplimiento legal y regulatorio
+3. Implicaciones financieras y análisis costo-beneficio
+4. Comparación de requisitos técnicos
+5. Recomendaciones estratégicas para la selección
 
-Provide your response in JSON format with the following structure:
+Proporciona tu respuesta en formato JSON con la siguiente estructura:
 {
-  "summary": "Executive summary of the comparison",
+  "summary": "Resumen ejecutivo de la comparación",
   "comparison": {
     "strengths": {
-      "Document A": ["strength1", "strength2"],
-      "Document B": ["strength1", "strength2"]
+      "Documento A": ["fortaleza1", "fortaleza2"],
+      "Documento B": ["fortaleza1", "fortaleza2"]
     },
     "weaknesses": {
-      "Document A": ["weakness1", "weakness2"],
-      "Document B": ["weakness1", "weakness2"]
+      "Documento A": ["debilidad1", "debilidad2"],
+      "Documento B": ["debilidad1", "debilidad2"]
     }
   },
   "recommendation": {
-    "preferred": "Document name",
-    "reasoning": "Detailed reasoning",
-    "improvements": ["improvement1", "improvement2"]
+    "preferred": "Nombre del documento",
+    "reasoning": "Razonamiento detallado",
+    "improvements": ["mejora1", "mejora2"]
   },
   "riskMatrix": {
-    "Document A": { "legal": 1-10, "financial": 1-10, "operational": 1-10 },
-    "Document B": { "legal": 1-10, "financial": 1-10, "operational": 1-10 }
+    "Documento A": { "legal": 1-10, "financial": 1-10, "operational": 1-10 },
+    "Documento B": { "legal": 1-10, "financial": 1-10, "operational": 1-10 }
   }
-}`
+}
+
+IMPORTANTE: Toda tu respuesta debe estar completamente en español.`
 
     const userMessage = question 
-      ? `Please compare these documents with focus on: ${question}\n\nDocuments to compare: ${JSON.stringify(analyses, null, 2)}`
-      : `Please provide comprehensive comparison insights for these documents:\n\nDocuments to compare: ${JSON.stringify(analyses, null, 2)}`
+      ? `Por favor compara estos documentos con enfoque en: ${question}\n\nDocumentos a comparar: ${JSON.stringify(analyses, null, 2)}`
+      : `Por favor proporciona insights de comparación exhaustivos para estos documentos:\n\nDocumentos a comparar: ${JSON.stringify(analyses, null, 2)}`
 
     const messages: ChatMessage[] = [
       { role: 'user', content: userMessage }
@@ -309,17 +313,17 @@ Provide your response in JSON format with the following structure:
       return JSON.parse(response)
     } catch (error) {
       // Fallback if JSON parsing fails
-      const docNames = analyses.map((a, i) => a.documentName || `Document ${i + 1}`)
+      const docNames = analyses.map((a, i) => a.documentName || `Documento ${i + 1}`)
       return {
         summary: response,
         comparison: {
-          strengths: docNames.reduce((acc, name) => ({ ...acc, [name]: ['See detailed analysis'] }), {}),
-          weaknesses: docNames.reduce((acc, name) => ({ ...acc, [name]: ['See detailed analysis'] }), {})
+          strengths: docNames.reduce((acc, name) => ({ ...acc, [name]: ['Ver análisis detallado'] }), {}),
+          weaknesses: docNames.reduce((acc, name) => ({ ...acc, [name]: ['Ver análisis detallado'] }), {})
         },
         recommendation: {
-          preferred: docNames[0] || 'First document',
-          reasoning: 'Based on detailed analysis provided',
-          improvements: ['Review the detailed comparison provided']
+          preferred: docNames[0] || 'Primer documento',
+          reasoning: 'Basado en el análisis detallado proporcionado',
+          improvements: ['Revisar la comparación detallada proporcionada']
         },
         riskMatrix: docNames.reduce((acc, name) => ({ 
           ...acc, 
@@ -333,46 +337,48 @@ Provide your response in JSON format with the following structure:
     // Build document context
     let documentContext = ''
     if (context.documents && context.documents.length > 0) {
-      documentContext = '\n\nAvailable Documents in Workspace:\n'
+      documentContext = '\n\nDocumentos Disponibles en el Espacio de Trabajo:\n'
       context.documents.forEach((doc: any, index: number) => {
         documentContext += `\n${index + 1}. ${doc.name} (${doc.type})\n`
-        documentContext += `   Description: ${doc.description || 'No description'}\n`
+        documentContext += `   Descripción: ${doc.description || 'Sin descripción'}\n`
         if (doc.extractedText && doc.extractedText.length > 0) {
           // Include first 2000 characters of extracted text
           const textPreview = doc.extractedText.substring(0, 2000)
-          documentContext += `   Content Preview: ${textPreview}${doc.extractedText.length > 2000 ? '...' : ''}\n`
+          documentContext += `   Vista Previa del Contenido: ${textPreview}${doc.extractedText.length > 2000 ? '...' : ''}\n`
         }
-        documentContext += `   Uploaded: ${new Date(doc.uploadedAt).toLocaleDateString()}\n`
+        documentContext += `   Subido: ${new Date(doc.uploadedAt).toLocaleDateString()}\n`
       })
     }
 
-    const systemPrompt = `You are an intelligent AI assistant specializing in legal document analysis for government contracts, tenders, and procurement processes.
+    const systemPrompt = `Eres un asistente de IA inteligente especializado en análisis de documentos legales para contratos gubernamentales, licitaciones y procesos de adquisiciones.
 
-You have access to the user's workspace, document analyses, and uploaded documents. Use this context to provide informed, actionable insights.
+Tienes acceso al espacio de trabajo del usuario, análisis de documentos y documentos subidos. Usa este contexto para proporcionar insights informados y accionables.
 
-Your capabilities include:
-1. Document analysis and interpretation
-2. Risk assessment and compliance checking
-3. Comparative analysis between documents
-4. Legal and regulatory guidance
-5. Strategic recommendations
+Tus capacidades incluyen:
+1. Análisis e interpretación de documentos
+2. Evaluación de riesgos y verificación de cumplimiento
+3. Análisis comparativo entre documentos
+4. Orientación legal y regulatoria
+5. Recomendaciones estratégicas
 
-Context Information:
-- Workspace: ${context.workspace?.name || 'Unknown'}
-- Country: ${context.workspace?.country?.name || 'Not specified'}
-- Available analyses: ${context.analyses?.length || 0}
-- Available documents: ${context.documents?.length || 0}${documentContext}
+Información de Contexto:
+- Espacio de trabajo: ${context.workspace?.name || 'Desconocido'}
+- País: ${context.workspace?.country?.name || 'No especificado'}
+- Análisis disponibles: ${context.analyses?.length || 0}
+- Documentos disponibles: ${context.documents?.length || 0}${documentContext}
 
-When analyzing documents, you can reference the content provided above. For detailed analysis, focus on:
-- Legal compliance and risks
-- Financial terms and implications
-- Technical requirements
-- Deadlines and obligations
-- Recommendations for improvement
+Cuando analices documentos, puedes referenciar el contenido proporcionado arriba. Para análisis detallado, enfócate en:
+- Cumplimiento legal y riesgos
+- Términos financieros e implicaciones
+- Requisitos técnicos
+- Plazos y obligaciones
+- Recomendaciones para mejora
 
-Provide helpful, accurate, and actionable responses. If you need more specific information, ask clarifying questions.
+Proporciona respuestas útiles, precisas y accionables. Si necesitas información más específica, haz preguntas aclaratorias.
 
-Always maintain a professional tone and focus on practical business value.`
+Siempre mantén un tono profesional y enfócate en el valor práctico del negocio.
+
+IMPORTANTE: Todas tus respuestas deben estar completamente en español.`
 
     return await this.callLLM(messages, systemPrompt)
   }
