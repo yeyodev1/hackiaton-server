@@ -1,0 +1,288 @@
+import type { Request, Response, NextFunction } from 'express'
+import jwt from 'jsonwebtoken'
+import { Types } from 'mongoose'
+import { HttpStatusCode } from 'axios'
+import models from '../models'
+import { GoogleDriveService } from '../services/googleDrive.service'
+import path from 'path'
+import fs from 'fs/promises'
+import pdfParse from 'pdf-parse'
+
+// JWT Configuration
+const JWT_SECRET: string = process.env.JWT_SECRET || 'your-secret-key'
+const GOOGLE_DRIVE_FOLDER_ID = '1XMOlJCE74sqDdv8rh7chl4YMlKfoAWPB'
+
+// Interface for JWT payload
+interface DecodedJWT {
+  userId: string
+  email: string
+  iat: number
+  exp: number
+}
+
+// Interface for document upload request
+interface DocumentUploadRequest {
+  documentType: 'contract' | 'pliego' | 'propuesta'
+  title: string
+  description?: string
+}
+
+export async function uploadDocumentController(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const authHeader = req.headers.authorization
+    const { documentType, title, description }: DocumentUploadRequest = req.body
+    
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      res.status(HttpStatusCode.Unauthorized).send({
+        success: false,
+        message: 'Access token required'
+      })
+      return
+    }
+
+    if (!req.file) {
+      res.status(HttpStatusCode.BadRequest).send({
+        success: false,
+        message: 'Document file is required'
+      })
+      return
+    }
+
+    if (!documentType || !title) {
+      res.status(HttpStatusCode.BadRequest).send({
+        success: false,
+        message: 'Document type and title are required'
+      })
+      return
+    }
+
+    const token = authHeader.substring(7)
+
+    try {
+      const decoded = jwt.verify(token, JWT_SECRET) as DecodedJWT
+      
+      // Find user's workspace
+      const workspace = await models.Workspace.findOne({
+        ownerId: decoded.userId,
+        deletedAt: null
+      })
+
+      if (!workspace) {
+        res.status(HttpStatusCode.NotFound).send({
+          success: false,
+          message: 'Workspace not found'
+        })
+        return
+      }
+
+      // Extract text content from PDF
+      let extractedText = ''
+      try {
+        const fileBuffer = await fs.readFile(req.file.path)
+        const pdfData = await pdfParse(fileBuffer)
+        extractedText = pdfData.text
+      } catch (pdfError) {
+        console.error('Error extracting PDF text:', pdfError)
+        // Continue without text extraction if it fails
+      }
+
+      // Initialize Google Drive service
+      const credentialsPath = path.join(process.cwd(), 'google-credentials.json')
+      const driveService = new GoogleDriveService(credentialsPath, GOOGLE_DRIVE_FOLDER_ID)
+      
+      // Create workspace folder if it doesn't exist
+      const workspaceFolderId = await driveService.ensureSubfolder(`workspace_${workspace._id}`)
+      
+      // Upload the document
+      const fileName = `${documentType}_${Date.now()}_${req.file.originalname}`
+      const documentUrl = await driveService.uploadFileToSubfolder(
+        req.file.path,
+        fileName,
+        workspaceFolderId
+      )
+
+      // Create document record in workspace
+      const documentRecord = {
+        id: new Types.ObjectId().toString(),
+        name: title,
+        originalName: req.file.originalname,
+        type: documentType,
+        url: documentUrl,
+        description: description || '',
+        extractedText: extractedText,
+        uploadedAt: new Date(),
+        uploadedBy: decoded.userId
+      }
+
+      // Update workspace with new document
+      const updatedWorkspace = await models.Workspace.findByIdAndUpdate(
+        workspace._id,
+        {
+          $push: {
+            'settings.documents': documentRecord
+          },
+          updatedAt: new Date()
+        },
+        { new: true }
+      )
+
+      // Clean up uploaded file
+      try {
+        await fs.unlink(req.file.path)
+      } catch (cleanupError) {
+        console.error('Error cleaning up uploaded file:', cleanupError)
+      }
+
+      res.status(HttpStatusCode.Created).send({
+        success: true,
+        message: 'Document uploaded successfully',
+        document: {
+          id: documentRecord.id,
+          name: documentRecord.name,
+          type: documentRecord.type,
+          url: documentRecord.url,
+          description: documentRecord.description,
+          uploadedAt: documentRecord.uploadedAt,
+          hasExtractedText: extractedText.length > 0
+        }
+      })
+      return
+    } catch (jwtError) {
+      res.status(HttpStatusCode.Unauthorized).send({
+        success: false,
+        message: 'Invalid or expired token'
+      })
+      return
+    }
+  } catch (error: unknown) {
+    console.error('Error in uploadDocumentController:', error)
+    next(error)
+  }
+}
+
+export async function getWorkspaceDocumentsController(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const authHeader = req.headers.authorization
+    
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      res.status(HttpStatusCode.Unauthorized).send({
+        success: false,
+        message: 'Access token required'
+      })
+      return
+    }
+
+    const token = authHeader.substring(7)
+
+    try {
+      const decoded = jwt.verify(token, JWT_SECRET) as DecodedJWT
+      
+      // Find user's workspace
+      const workspace = await models.Workspace.findOne({
+        ownerId: decoded.userId,
+        deletedAt: null
+      })
+
+      if (!workspace) {
+        res.status(HttpStatusCode.NotFound).send({
+          success: false,
+          message: 'Workspace not found'
+        })
+        return
+      }
+
+      const documents = workspace.settings?.documents || []
+
+      res.status(HttpStatusCode.Ok).send({
+        success: true,
+        message: 'Documents retrieved successfully',
+        documents: documents.map(doc => ({
+          id: doc.id,
+          name: doc.name,
+          type: doc.type,
+          description: doc.description,
+          uploadedAt: doc.uploadedAt,
+          hasExtractedText: (doc.extractedText && doc.extractedText.length > 0) || false
+        }))
+      })
+      return
+    } catch (jwtError) {
+      res.status(HttpStatusCode.Unauthorized).send({
+        success: false,
+        message: 'Invalid or expired token'
+      })
+      return
+    }
+  } catch (error: unknown) {
+    console.error('Error in getWorkspaceDocumentsController:', error)
+    next(error)
+  }
+}
+
+export async function deleteDocumentController(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const authHeader = req.headers.authorization
+    const { documentId } = req.params
+    
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      res.status(HttpStatusCode.Unauthorized).send({
+        success: false,
+        message: 'Access token required'
+      })
+      return
+    }
+
+    if (!documentId) {
+      res.status(HttpStatusCode.BadRequest).send({
+        success: false,
+        message: 'Document ID is required'
+      })
+      return
+    }
+
+    const token = authHeader.substring(7)
+
+    try {
+      const decoded = jwt.verify(token, JWT_SECRET) as DecodedJWT
+      
+      // Find user's workspace and remove document
+      const workspace = await models.Workspace.findOneAndUpdate(
+        {
+          ownerId: decoded.userId,
+          deletedAt: null,
+          'settings.documents.id': documentId
+        },
+        {
+          $pull: {
+            'settings.documents': { id: documentId }
+          },
+          updatedAt: new Date()
+        },
+        { new: true }
+      )
+
+      if (!workspace) {
+        res.status(HttpStatusCode.NotFound).send({
+          success: false,
+          message: 'Document not found or access denied'
+        })
+        return
+      }
+
+      res.status(HttpStatusCode.Ok).send({
+        success: true,
+        message: 'Document deleted successfully'
+      })
+      return
+    } catch (jwtError) {
+      res.status(HttpStatusCode.Unauthorized).send({
+        success: false,
+        message: 'Invalid or expired token'
+      })
+      return
+    }
+  } catch (error: unknown) {
+    console.error('Error in deleteDocumentController:', error)
+    next(error)
+  }
+}
