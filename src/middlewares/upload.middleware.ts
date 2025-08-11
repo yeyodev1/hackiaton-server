@@ -4,7 +4,9 @@ import crypto from "crypto";
 
 const storage = multer.diskStorage({
 	destination: (_req, _file, cb) => {
-		cb(null, "uploads/");
+		// Use absolute path to ensure uploads directory is found
+		const uploadsDir = path.resolve(process.cwd(), "uploads");
+		cb(null, uploadsDir);
 	},
 	filename: (req, file, cb) => {
 		const uniqueSuffix =
