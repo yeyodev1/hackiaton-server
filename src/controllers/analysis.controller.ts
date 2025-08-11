@@ -3,8 +3,7 @@ import { Types } from 'mongoose'
 import { HttpStatusCode } from 'axios'
 import models from '../models'
 import LLMService from '../services/llm.service'
-// TODO: Install pdf-parse when package manager issues are resolved
-// import * as pdfParse from 'pdf-parse'
+import pdfParse from 'pdf-parse'
 
 // Interface for document analysis result
 interface DocumentAnalysisResult {
@@ -418,27 +417,35 @@ async function analyzeDocumentWithAI(
   const country = workspaceSettings.country?.name || 'Ecuador'
 
   try {
-    // TODO: Replace with actual PDF text extraction when pdf-parse is installed
-    // For now, we'll read the file content as text to simulate extraction
+    // Extract text from PDF using pdf-parse
     let extractedText: string
     
     try {
-      // Check if file exists and read its content
       const fs = require('fs').promises
       const path = require('path')
       
       // Ensure we have the correct file path
       const filePath = path.resolve(file.path)
-      console.log('Reading file from path:', filePath)
+      console.log('Reading PDF file from path:', filePath)
       
-      // For now, simulate text extraction from filename and basic file info
-      const fileStats = await fs.stat(filePath)
-      extractedText = `Document: ${file.originalname}\nFile size: ${fileStats.size} bytes\nDocument type: ${documentType}\nCountry: ${country}\nThis document will be analyzed by AI for compliance, technical requirements, and economic factors.`
+      // Read the PDF file as buffer
+      const pdfBuffer = await fs.readFile(filePath)
+      
+      // Extract text from PDF
+      const pdfData = await pdfParse(pdfBuffer)
+      extractedText = pdfData.text
+      
+      console.log(`Successfully extracted ${extractedText.length} characters from PDF`)
+      
+      // If no text was extracted, provide fallback
+      if (!extractedText || extractedText.trim().length === 0) {
+        extractedText = `Document: ${file.originalname}\nDocument type: ${documentType}\nCountry: ${country}\nNote: PDF appears to be image-based or text extraction failed. Manual review recommended.`
+      }
       
     } catch (fileError) {
-      console.error('Error reading file:', fileError)
-      // Fallback to basic text simulation
-      extractedText = `Document: ${file.originalname}\nThis is a ${documentType} document from ${country}.\nContent analysis will be performed by AI based on document type and context.`
+      console.error('Error extracting text from PDF:', fileError)
+      // Fallback to basic document info
+      extractedText = `Document: ${file.originalname}\nThis is a ${documentType} document from ${country}.\nNote: Text extraction failed. Manual review recommended for detailed analysis.`
     }
 
     // Initialize LLM service
