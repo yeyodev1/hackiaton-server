@@ -330,9 +330,25 @@ Provide your response in JSON format with the following structure:
   }
 
   async chatWithAgent(messages: ChatMessage[], context: any): Promise<string> {
+    // Build document context
+    let documentContext = ''
+    if (context.documents && context.documents.length > 0) {
+      documentContext = '\n\nAvailable Documents in Workspace:\n'
+      context.documents.forEach((doc: any, index: number) => {
+        documentContext += `\n${index + 1}. ${doc.name} (${doc.type})\n`
+        documentContext += `   Description: ${doc.description || 'No description'}\n`
+        if (doc.extractedText && doc.extractedText.length > 0) {
+          // Include first 2000 characters of extracted text
+          const textPreview = doc.extractedText.substring(0, 2000)
+          documentContext += `   Content Preview: ${textPreview}${doc.extractedText.length > 2000 ? '...' : ''}\n`
+        }
+        documentContext += `   Uploaded: ${new Date(doc.uploadedAt).toLocaleDateString()}\n`
+      })
+    }
+
     const systemPrompt = `You are an intelligent AI assistant specializing in legal document analysis for government contracts, tenders, and procurement processes.
 
-You have access to the user's workspace and document analyses. Use this context to provide informed, actionable insights.
+You have access to the user's workspace, document analyses, and uploaded documents. Use this context to provide informed, actionable insights.
 
 Your capabilities include:
 1. Document analysis and interpretation
@@ -345,6 +361,14 @@ Context Information:
 - Workspace: ${context.workspace?.name || 'Unknown'}
 - Country: ${context.workspace?.country?.name || 'Not specified'}
 - Available analyses: ${context.analyses?.length || 0}
+- Available documents: ${context.documents?.length || 0}${documentContext}
+
+When analyzing documents, you can reference the content provided above. For detailed analysis, focus on:
+- Legal compliance and risks
+- Financial terms and implications
+- Technical requirements
+- Deadlines and obligations
+- Recommendations for improvement
 
 Provide helpful, accurate, and actionable responses. If you need more specific information, ask clarifying questions.
 
