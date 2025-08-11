@@ -1,0 +1,98 @@
+partimos con estos campos
+
+
+No. Para un MVP de 1 día, quédate con esto:
+
+id
+
+name
+
+companyId
+
+ownerId
+
+status
+
+members[].userId
+
+members[].role
+
+settings (JSON)
+
+usage.documentCount
+
+usage.analysisCount
+
+notifications.webhookUrl
+
+createdAt
+
+updatedAt
+
+deletedAt
+
+
+
+y aqui esta porque 
+
+
+
+Campos del Workspace (MVP)
+id (string/UUID)
+Identificador único del workspace. Clave primaria para relacionar todo (docs, análisis, comparativas).
+
+name (string)
+Nombre visible del workspace (p. ej., “Licitación Hospital Norte”). Se muestra en la UI y en el pitch/demo.
+
+companyId (string/UUID/ObjectId)
+Vincula el workspace con la empresa/cliente. Útil para filtrar y aplicar permisos a nivel compañía.
+
+ownerId (string/UUID/ObjectId)
+Usuario creador / responsable. Se usa para permisos elevados y auditoría rápida.
+
+status (enum: active | paused | archived)
+Controla el estado operativo:
+
+active: se permite subir/analizar/comparar.
+
+paused: se bloquean nuevos análisis (útil en demo para “congelar” estado).
+
+archived: solo lectura; ocúltalo de listados activos.
+
+members[] (array de objetos)
+Control de acceso básico por rol dentro del workspace.
+
+members[].userId (string): usuario con acceso.
+
+members[].role (enum: owner | admin | analyst | viewer):
+
+owner: mismo nivel que ownerId.
+
+admin: gestiona settings y usuarios.
+
+analyst: sube documentos y lanza análisis/comparaciones.
+
+viewer: ve dashboard e informes.
+
+settings (object / JSON plano)
+Zona flexible donde configuras el “agente” y las reglas sin tocar el esquema. Aquí viven todas las perillas del reto: parsers, NLP, validaciones de RUC, reglas de riesgo, pesos de scoring, umbrales, criterios de comparación, etc. (Abajo te dejo una plantilla recomendada).
+
+usage.documentCount (number)
+Conteo de documentos cargados (pliegos, propuestas, contratos). Lo usarás en el dashboard y para límites del MVP.
+
+usage.analysisCount (number)
+Número de análisis/comparaciones ejecutadas. Útil para métricas y mostrar “valor” (ahorro de tiempo).
+
+notifications.webhookUrl (string/url)
+URL opcional para avisar “análisis completado” o “riesgo detectado” (para la demo basta uno).
+
+createdAt (datetime ISO)
+Fecha de creación (auditoría y ordenación).
+
+updatedAt (datetime ISO)
+Última modificación (útil para “recientes” en la UI).
+
+deletedAt (datetime ISO | null)
+Soft delete sin perder data; si no está borrado, null.
+
+

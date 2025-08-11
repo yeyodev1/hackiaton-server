@@ -1,0 +1,75 @@
+Objetivo
+
+Diseñar una solución basada en inteligencia artificial que automatice el análisis de documentos involucrados en procesos de licitación (pliegos, propuestas, contratos) con el fin de reducir errores humanos, detectar riesgos legales o técnicos, acelerar las revisiones y facilitar la comparación objetiva entre oferentes.
+
+¿Por qué es importante este reto?
+
+Los procesos de licitación son largos, técnicos y propensos a errores. Se manejan grandes volúmenes de texto legal y técnico que deben ser revisados por múltiples departamentos. Actualmente, muchas empresas:
+
+Revisan documentos manualmente, lo que implica semanas de trabajo.
+
+Cometen errores por falta de tiempo o interpretación.
+
+Aceptan propuestas con vacíos contractuales o riesgos financieros.
+
+No tienen una forma sistematizada de comparar múltiples propuestas.
+
+Automatizar este proceso con IA permite:
+
+Ahorrar horas o días de trabajo administrativo y legal.
+Reducir sobrecostos por errores o condiciones mal negociadas.
+Detectar cláusulas riesgosas antes de firmar un contrato.
+Tomar decisiones informadas y con trazabilidad.
+¿Qué hará exactamente la IA en este reto?
+
+Leer documentos automáticamente:
+
+Usará procesamiento de lenguaje natural (NLP) para leer pliegos, propuestas y contratos en formatos PDF.
+
+Clasificar la información por secciones clave:
+
+Detectará y separará automáticamente secciones como:
+
+Condiciones legales (garantías, multas, plazos).
+
+Requisitos técnicos (materiales, procesos, tiempos).
+
+Condiciones económicas (presupuestos, formas de pago).
+
+Validar el RUC del contratista: Verificará si el tipo de razón social permite legalmente realizar el trabajo comprometido (ya sea por páginas gubernamentales o servicios que provean la información)
+
+Detectar vacíos o inconsistencias:
+
+Alertará si una propuesta no cumple con lo solicitado.
+
+Mostrará si una cláusula es ambigua, contradictoria o faltante.
+
+Validará que el contrato final refleja lo establecido en los pliegos.
+
+Comparar múltiples propuestas:
+
+Generará un resumen comparativo entre oferentes.
+
+Evaluará cuál cumple más requisitos y presenta menos riesgos.
+
+Identificará diferencias relevantes (presupuesto, condiciones, plazos).
+
+Sugerir mejoras o alertas:
+
+Recomendaciones sobre cláusulas faltantes o riesgosas.
+
+Señalización visual de los puntos críticos con semáforos o alertas.
+
+**Entregables Esperados
+
+**
+
+Demo funcional web donde se pueda cargar documentos y visualizar análisis.
+Dashboard comparativo interactivo
+Informe técnico explicando el modelo, lógica, hallazgos y pruebas.
+Pitch final (máximo 10 minutos).
+Datos de Entrada Disponibles
+
+Pliegos de condiciones (.pdf).
+
+Contratos modelo anteriores.
