@@ -133,7 +133,7 @@ export async function uploadCompanyDocumentController(req: Request, res: Respons
       }
 
       // Initialize Google Drive service
-      const credentialsPath = path.join(process.cwd(), 'google-credentials.json')
+      const credentialsPath = path.join(process.cwd(), 'src', 'credentials', 'google-credentials.json')
       const driveService = new GoogleDriveService(credentialsPath, GOOGLE_DRIVE_FOLDER_ID)
       
       // Create workspace folder if it doesn't exist
