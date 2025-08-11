@@ -15,11 +15,21 @@ export interface IWorkspaceNotifications {
 }
 
 export interface IWorkspaceSettings {
-  country: 'Ecuador' | 'Peru' | 'Colombia'
+  country: {
+    name: string
+    code: string
+  }
   legalDocuments: {
     constitution?: string // URL or file path to country constitution
-    organicCode?: string // URL or file path to organic code
-    companyConstitution?: string // Optional company constitution
+    procurementLaw?: string // URL or file path to procurement law
+    procurementRegulation?: string // URL or file path to procurement regulation
+    laborCode?: string // URL or file path to labor code
+    authority?: string // Regulatory authority
+    companyDocument?: {
+      name: string
+      url: string
+      uploadedAt: Date
+    } // Company uploaded document
   }
   analysisConfig: {
     riskThresholds: {
@@ -91,22 +101,49 @@ const workspaceNotificationsSchema = new Schema<IWorkspaceNotifications>({
 
 const workspaceSettingsSchema = new Schema<IWorkspaceSettings>({
   country: {
-    type: String,
-    enum: ['Ecuador', 'Peru', 'Colombia'],
-    required: true
+    name: {
+      type: String,
+      required: true
+    },
+    code: {
+      type: String,
+      required: true
+    }
   },
   legalDocuments: {
     constitution: {
       type: String,
       required: false
     },
-    organicCode: {
+    procurementLaw: {
       type: String,
       required: false
     },
-    companyConstitution: {
+    procurementRegulation: {
       type: String,
       required: false
+    },
+    laborCode: {
+      type: String,
+      required: false
+    },
+    authority: {
+      type: String,
+      required: false
+    },
+    companyDocument: {
+      name: {
+        type: String,
+        required: false
+      },
+      url: {
+        type: String,
+        required: false
+      },
+      uploadedAt: {
+        type: Date,
+        required: false
+      }
     }
   },
   analysisConfig: {
