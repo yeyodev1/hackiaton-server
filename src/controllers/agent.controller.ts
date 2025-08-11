@@ -110,9 +110,13 @@ export async function chatWithAgentController(req: Request, res: Response, next:
         return
       }
 
+      // Get workspace documents for context
+      const workspaceDocuments = workspace.settings?.documents || []
+      
       // Prepare context for the agent
       const context = {
         analyses: analyses,
+        documents: workspaceDocuments,
         workspace: {
           name: workspace.name,
           country: workspace.settings?.country,
