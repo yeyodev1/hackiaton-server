@@ -144,6 +144,7 @@ export async function analyzeDocumentController(req: Request, res: Response, nex
       success: true,
       message: 'Document analyzed successfully',
       analysis: analysisResult,
+      analysisId: (savedAnalysis._id as Types.ObjectId).toString(),
       workspace: {
         id: workspace._id,
         name: workspace.name,
