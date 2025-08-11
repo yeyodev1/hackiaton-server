@@ -24,6 +24,35 @@ interface DecodedJWT extends JWTPayload {
   exp: number
 }
 
+// Helper function to get country code from country name
+function getCountryCode(countryName: string): string {
+  const countryMap: Record<string, string> = {
+    'Ecuador': 'EC',
+    'Perú': 'PE',
+    'Colombia': 'CO',
+    'México': 'MX',
+    'Argentina': 'AR',
+    'Bolivia': 'BO',
+    'Brasil': 'BR',
+    'Chile': 'CL',
+    'Costa Rica': 'CR',
+    'Cuba': 'CU',
+    'El Salvador': 'SV',
+    'Guatemala': 'GT',
+    'Honduras': 'HN',
+    'Nicaragua': 'NI',
+    'Panamá': 'PA',
+    'Paraguay': 'PY',
+    'República Dominicana': 'DO',
+    'Uruguay': 'UY',
+    'Venezuela': 'VE',
+    'España': 'ES',
+    'Estados Unidos': 'US',
+    'Canadá': 'CA'
+  }
+  return countryMap[countryName] || 'OT'
+}
+
 export async function registerUserController(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const { name, email, password, companyName, country } = req.body
@@ -100,7 +129,10 @@ export async function registerUserController(req: Request, res: Response, next: 
         role: 'owner'
       }],
       settings: {
-        country: country as 'Ecuador' | 'Peru' | 'Colombia',
+        country: {
+          name: country.trim(),
+          code: getCountryCode(country.trim())
+        },
         legalDocuments: {},
         analysisConfig: {
           riskThresholds: {
