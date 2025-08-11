@@ -1,75 +1,80 @@
-export enum CountryCode {
-  ECUADOR = 'EC',
-  PERU = 'PE',
-  COLOMBIA = 'CO',
-  MEXICO = 'MX',
-  OTHERS = 'OT'
-}
-
-export enum CountryName {
-  ECUADOR = 'Ecuador',
-  PERU = 'Peru',
-  COLOMBIA = 'Colombia',
-  MEXICO = 'Mexico',
-  OTHERS = 'Others'
+export interface CountryLegalDocs {
+  constitution: string;
+  procurementLaw: string;           // ley principal de contrataciones
+  procurementRegulation?: string;   // reglamento / decreto
+  laborCode?: string;               // opcional (no core para licitaciones)
+  authority?: string;               // entidad rectora
 }
 
 export interface CountryInfo {
-  name: string
-  code: string
-  legalDocuments: {
-    constitution: string
-    organicCode: string
-  }
+  name: string;
+  code: string;
+  legalDocuments: CountryLegalDocs;
 }
 
 export const COUNTRIES_CONFIG: Record<string, CountryInfo> = {
   ecuador: {
-    name: CountryName.ECUADOR,
-    code: CountryCode.ECUADOR,
+    name: "Ecuador",
+    code: "EC",
     legalDocuments: {
-      constitution: 'Constitution of Ecuador',
-      organicCode: 'Organic Code of Ecuador'
+      constitution: "Constitución de la República del Ecuador",
+      procurementLaw: "Ley Orgánica del Sistema Nacional de Contratación Pública (LOSNCP)",
+      procurementRegulation: "Reglamento General a la LOSNCP",
+      laborCode: "Código del Trabajo",
+      authority: "SERCOP"
     }
   },
   peru: {
-    name: CountryName.PERU,
-    code: CountryCode.PERU,
+    name: "Perú",
+    code: "PE",
     legalDocuments: {
-      constitution: 'Constitution of Peru',
-      organicCode: 'Organic Code of Peru'
+      constitution: "Constitución Política del Perú",
+      procurementLaw: "Ley de Contrataciones del Estado (LCE)",
+      procurementRegulation: "Reglamento de la LCE",
+      laborCode: "Marco laboral general (p.ej., D.S. 003-97-TR)",
+      authority: "OSCE"
     }
   },
   colombia: {
-    name: CountryName.COLOMBIA,
-    code: CountryCode.COLOMBIA,
+    name: "Colombia",
+    code: "CO",
     legalDocuments: {
-      constitution: 'Constitution of Colombia',
-      organicCode: 'Organic Code of Colombia'
+      constitution: "Constitución Política de Colombia",
+      procurementLaw: "Estatuto General de Contratación (Ley 80 de 1993, Ley 1150 de 2007)",
+      procurementRegulation: "D. 1082 de 2015 (compila reglamentación)",
+      laborCode: "Código Sustantivo del Trabajo",
+      authority: "Colombia Compra Eficiente"
     }
   },
   mexico: {
-    name: CountryName.MEXICO,
-    code: CountryCode.MEXICO,
+    name: "México",
+    code: "MX",
     legalDocuments: {
-      constitution: 'Constitution of Mexico',
-      organicCode: 'Organic Code of Mexico'
+      constitution: "Constitución Política de los Estados Unidos Mexicanos",
+      procurementLaw: "LAASSP / LOPSRM (federal)",
+      procurementRegulation: "Reglamentos de la LAASSP y LOPSRM",
+      laborCode: "Ley Federal del Trabajo",
+      authority: "SFP / CompraNet"
     }
   },
   others: {
-    name: CountryName.OTHERS,
-    code: CountryCode.OTHERS,
+    name: "Others",
+    code: "OT",
     legalDocuments: {
-      constitution: 'Custom Constitution - Please upload your documents',
-      organicCode: 'Custom Organic Code - Please upload your documents'
+      constitution: "Custom Constitution - Please upload your documents",
+      procurementLaw: "Custom Procurement Law - Please upload your documents",
+      procurementRegulation: "Custom Procurement Regulation - Please upload your documents",
+      laborCode: "Custom Labor Law - Optional",
+      authority: "Custom Authority"
     }
   }
+};
+
+// Helper functions
+export function getCountryByKey(key: string): CountryInfo | null {
+  return COUNTRIES_CONFIG[key] || null;
 }
 
-export const getCountryByKey = (key: string): CountryInfo | null => {
-  return COUNTRIES_CONFIG[key.toLowerCase()] || null
-}
-
-export const getAllCountries = (): CountryInfo[] => {
-  return Object.values(COUNTRIES_CONFIG)
+export function getAllCountries(): CountryInfo[] {
+  return Object.values(COUNTRIES_CONFIG);
 }
