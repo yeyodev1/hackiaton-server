@@ -2,16 +2,7 @@ import OpenAI from 'openai'
 import { GoogleGenerativeAI } from '@google/generative-ai'
 
 // Interfaces for LLM responses
-interface DocumentInsights {
-  summary: string
-  keyFindings: string[]
-  recommendations: string[]
-  riskAssessment: {
-    level: 'low' | 'medium' | 'high'
-    score: number
-    factors: string[]
-  }
-}
+// DocumentInsights is now returned as a markdown string
 
 interface ComparisonInsights {
   summary: string
@@ -208,57 +199,82 @@ class LLMService {
     throw new Error('No AI providers are available')
   }
 
-  async generateDocumentInsights(analysis: any, question?: string): Promise<DocumentInsights> {
-    const systemPrompt = `Eres un analista legal y empresarial experto especializado en revisión de documentos para contratos gubernamentales y licitaciones.
+  async generateDocumentInsights(analysis: any, question?: string): Promise<string> {
+    const { country = 'Ecuador' } = analysis
+    
+    // Get legal context for the country
+    const legalContext = await this.getLegalContext(country)
+    
+    const systemPrompt = `Eres un analista legal y empresarial experto especializado en revisión de documentos para contratos gubernamentales y licitaciones en ${country}.
 
-Tu tarea es analizar el análisis de documento proporcionado y generar insights accionables.
+Tu tarea es analizar el documento proporcionado y generar un análisis exhaustivo en formato markdown.
+
+Contexto Legal de ${country}:
+${legalContext}
 
 Enfócate en:
-1. Cumplimiento legal y adherencia regulatoria
+1. Cumplimiento legal y adherencia regulatoria específica de ${country}
 2. Riesgos financieros y comerciales
 3. Requisitos técnicos y factibilidad
 4. Consideraciones operacionales
 5. Ventajas o desventajas competitivas
+6. Comparación con las normativas legales del país
 
-Proporciona tu respuesta en formato JSON con la siguiente estructura:
-{
-  "summary": "Resumen breve del análisis del documento",
-  "keyFindings": ["Hallazgo 1", "Hallazgo 2", "Hallazgo 3"],
-  "recommendations": ["Recomendación 1", "Recomendación 2", "Recomendación 3"],
-  "riskAssessment": {
-    "level": "low|medium|high",
-    "score": 1-10,
-    "factors": ["factor1", "factor2"]
-  }
-}
+Proporciona tu respuesta en formato markdown bien estructurado con:
+- Resumen ejecutivo
+- Hallazgos clave
+- Análisis de riesgos
+- Recomendaciones
+- Conclusiones
 
-IMPORTANTE: Toda tu respuesta debe estar completamente en español.`
+Utiliza encabezados, listas, y formato markdown para una presentación clara.
+
+IMPORTANTE: Toda tu respuesta debe estar completamente en español y en formato markdown.`
 
     const userMessage = question 
-      ? `Por favor analiza este documento con enfoque en: ${question}\n\nAnálisis del Documento: ${JSON.stringify(analysis, null, 2)}`
-      : `Por favor proporciona insights exhaustivos para este análisis de documento:\n\nAnálisis del Documento: ${JSON.stringify(analysis, null, 2)}`
+      ? `Por favor analiza este documento con enfoque en: ${question}\n\nDocumento: ${analysis.fileName}\nTipo: ${analysis.documentType}\nPaís: ${country}\n\nContenido extraído:\n${analysis.extractedText}`
+      : `Por favor proporciona un análisis exhaustivo para este documento:\n\nDocumento: ${analysis.fileName}\nTipo: ${analysis.documentType}\nPaís: ${country}\n\nContenido extraído:\n${analysis.extractedText}`
 
     const messages: ChatMessage[] = [
       { role: 'user', content: userMessage }
     ]
 
     const response = await this.callLLM(messages, systemPrompt)
-    
-    try {
-      return JSON.parse(response)
-    } catch (error) {
-      // Fallback if JSON parsing fails
-      return {
-        summary: response,
-        keyFindings: ['Análisis completado - ver resumen para detalles'],
-        recommendations: ['Revisar el análisis detallado proporcionado'],
-        riskAssessment: {
-          level: 'medium',
-          score: 5,
-          factors: ['general']
-        }
-      }
+    return response
+  }
+
+  private async getLegalContext(country: string): Promise<string> {
+    if (country.toLowerCase() === 'ecuador') {
+      return `
+Marco Legal de Ecuador para Contratación Pública:
+
+1. **Constitución de la República del Ecuador**: Establece los principios fundamentales de transparencia, eficiencia y responsabilidad en la gestión pública.
+
+2. **Ley Orgánica del Sistema Nacional de Contratación Pública (LOSNCP)**: Regula los procedimientos de contratación pública, incluyendo:
+   - Procedimientos de selección
+   - Requisitos de participación
+   - Garantías exigidas
+   - Causales de terminación
+   - Régimen de multas y sanciones
+
+3. **Reglamento General de la Ley Orgánica del Sistema Nacional de Contratación Pública**: Detalla los procedimientos específicos, formatos, y requisitos técnicos.
+
+Principios Clave:
+- Legalidad
+- Trato justo
+- Igualdad
+- Calidad
+- Vigencia tecnológica
+- Oportunidad
+- Concurrencia
+- Transparencia
+- Publicidad
+- Participación nacional
+
+Nota: Para un análisis completo, se debe verificar el cumplimiento con estas normativas específicas.`
     }
+    
+    return `Marco legal general para contratación pública en ${country}. Se recomienda consultar la legislación local específica.`
   }
 
   async generateComparisonInsights(analyses: any[], question?: string): Promise<ComparisonInsights> {

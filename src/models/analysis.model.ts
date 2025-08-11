@@ -38,13 +38,8 @@ export interface IDocumentAnalysis extends Document {
   documentType: 'pliego' | 'propuesta' | 'contrato'
   documentUrl?: string
   analysisDate: Date
-  sections: IDocumentSection
+  aiAnalysis: string // Raw AI response in markdown format
   rucValidation?: IRucValidation
-  gaps: string[]
-  inconsistencies: string[]
-  recommendations: string[]
-  overallRiskScore: number
-  overallComplianceScore: number
   status: 'processing' | 'completed' | 'failed'
   processingTime?: number // in milliseconds
   createdBy: Types.ObjectId
@@ -175,37 +170,13 @@ const documentAnalysisSchema = new Schema<IDocumentAnalysis>({
     required: true,
     default: Date.now
   },
-  sections: {
-    type: documentSectionSchema,
+  aiAnalysis: {
+    type: String,
     required: true
   },
   rucValidation: {
     type: rucValidationSchema,
     required: false
-  },
-  gaps: [{
-    type: String,
-    required: true
-  }],
-  inconsistencies: [{
-    type: String,
-    required: true
-  }],
-  recommendations: [{
-    type: String,
-    required: true
-  }],
-  overallRiskScore: {
-    type: Number,
-    required: true,
-    min: 0,
-    max: 1
-  },
-  overallComplianceScore: {
-    type: Number,
-    required: true,
-    min: 0,
-    max: 1
   },
   status: {
     type: String,
@@ -233,8 +204,6 @@ documentAnalysisSchema.index({ createdBy: 1 })
 documentAnalysisSchema.index({ documentType: 1 })
 documentAnalysisSchema.index({ status: 1 })
 documentAnalysisSchema.index({ analysisDate: -1 })
-documentAnalysisSchema.index({ overallRiskScore: 1 })
-documentAnalysisSchema.index({ overallComplianceScore: -1 })
 
 // Compound indexes
 documentAnalysisSchema.index({ workspaceId: 1, documentType: 1 })
