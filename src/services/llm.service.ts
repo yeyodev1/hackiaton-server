@@ -366,6 +366,31 @@ IMPORTANTE: Toda tu respuesta debe estar completamente en español.`
       })
     }
 
+    // Build full analysis context
+    let analysisContext = ''
+    if (context.fullAnalyses && context.fullAnalyses.length > 0) {
+      analysisContext = '\n\nAnálisis Completos Disponibles:\n'
+      context.fullAnalyses.forEach((analysis: any, index: number) => {
+        analysisContext += `\n=== ANÁLISIS ${index + 1}: ${analysis.documentName} ===\n`
+        analysisContext += `Fecha: ${new Date(analysis.createdAt).toLocaleDateString()}\n`
+        analysisContext += `Analista: ${analysis.createdBy?.name || 'Sistema'}\n\n`
+        
+        if (analysis.aiAnalysis) {
+          analysisContext += `ANÁLISIS COMPLETO:\n${analysis.aiAnalysis}\n\n`
+        }
+        
+        if (analysis.rucValidation) {
+          analysisContext += `VALIDACIÓN RUC:\n`
+          analysisContext += `- RUC: ${analysis.rucValidation.ruc || 'No encontrado'}\n`
+          analysisContext += `- Válido: ${analysis.rucValidation.isValid ? 'Sí' : 'No'}\n`
+          analysisContext += `- Razón Social: ${analysis.rucValidation.businessName || 'No disponible'}\n`
+          analysisContext += `- Estado: ${analysis.rucValidation.status || 'No disponible'}\n\n`
+        }
+        
+        analysisContext += `${'='.repeat(50)}\n`
+      })
+    }
+
     const systemPrompt = `Eres un asistente de IA inteligente especializado en análisis de documentos legales para contratos gubernamentales, licitaciones y procesos de adquisiciones.
 
 Tienes acceso al espacio de trabajo del usuario, análisis de documentos y documentos subidos. Usa este contexto para proporcionar insights informados y accionables.
@@ -381,7 +406,7 @@ Información de Contexto:
 - Espacio de trabajo: ${context.workspace?.name || 'Desconocido'}
 - País: ${context.workspace?.country?.name || 'No especificado'}
 - Análisis disponibles: ${context.analyses?.length || 0}
-- Documentos disponibles: ${context.documents?.length || 0}${documentContext}
+- Documentos disponibles: ${context.documents?.length || 0}${documentContext}${analysisContext}
 
 Cuando analices documentos, puedes referenciar el contenido proporcionado arriba. Para análisis detallado, enfócate en:
 - Cumplimiento legal y riesgos
@@ -391,6 +416,60 @@ Cuando analices documentos, puedes referenciar el contenido proporcionado arriba
 - Recomendaciones para mejora
 
 Proporciona respuestas útiles, precisas y accionables. Si necesitas información más específica, haz preguntas aclaratorias.
+
+Siempre mantén un tono profesional y enfócate en el valor práctico del negocio.
+
+IMPORTANTE: Todas tus respuestas deben estar completamente en español.`
+
+    return await this.callLLM(messages, systemPrompt)
+  }
+
+  async chatWithDocument(messages: ChatMessage[], context: any): Promise<string> {
+    // Build focused document context
+    let documentContext = ''
+    if (context.focusedAnalysis) {
+      const analysis = context.focusedAnalysis
+      documentContext = `\n\n=== DOCUMENTO ENFOCADO ===\n`
+      documentContext += `Nombre: ${analysis.documentName}\n`
+      documentContext += `Fecha de Análisis: ${new Date(analysis.createdAt).toLocaleDateString()}\n`
+      documentContext += `Analista: ${analysis.createdBy?.name || 'Sistema'}\n\n`
+      
+      if (analysis.aiAnalysis) {
+        documentContext += `ANÁLISIS COMPLETO DEL DOCUMENTO:\n${analysis.aiAnalysis}\n\n`
+      }
+      
+      if (analysis.rucValidation) {
+        documentContext += `VALIDACIÓN RUC:\n`
+        documentContext += `- RUC: ${analysis.rucValidation.ruc || 'No encontrado'}\n`
+        documentContext += `- Válido: ${analysis.rucValidation.isValid ? 'Sí' : 'No'}\n`
+        documentContext += `- Razón Social: ${analysis.rucValidation.businessName || 'No disponible'}\n`
+        documentContext += `- Estado: ${analysis.rucValidation.status || 'No disponible'}\n\n`
+      }
+      
+      documentContext += `${'='.repeat(50)}\n`
+    }
+
+    const systemPrompt = `Eres un asistente de IA especializado en análisis de documentos legales para contratos gubernamentales, licitaciones y procesos de adquisiciones.
+
+Estás enfocado en responder preguntas específicas sobre UN DOCUMENTO en particular que ha sido previamente analizado.
+
+Tus capacidades incluyen:
+1. Responder preguntas específicas sobre el contenido del documento
+2. Explicar términos y cláusulas del contrato
+3. Identificar riesgos y oportunidades específicas
+4. Proporcionar recomendaciones basadas en el análisis
+5. Comparar aspectos específicos con mejores prácticas
+
+Información de Contexto:
+- Espacio de trabajo: ${context.workspace?.name || 'Desconocido'}
+- País: ${context.workspace?.country?.name || 'No especificado'}${documentContext}
+
+Cuando respondas:
+- Basa tus respuestas EXCLUSIVAMENTE en el análisis del documento proporcionado
+- Si la pregunta no puede responderse con la información disponible, indícalo claramente
+- Proporciona citas específicas del análisis cuando sea relevante
+- Mantén un enfoque práctico y orientado a la acción
+- Si detectas inconsistencias o áreas de riesgo, resáltalas
 
 Siempre mantén un tono profesional y enfócate en el valor práctico del negocio.
 
