@@ -22,6 +22,12 @@ class ErrorHandler {
 
   private async notifySlack(errorLog: any): Promise<void> {
     try {
+      // Skip Slack notification if webhook URL is not configured
+      if (!this.slackWebHookUrl || this.slackWebHookUrl.trim() === '') {
+        console.log('Slack webhook URL not configured, skipping notification');
+        return;
+      }
+
       const errorMessage = `*Error en la API:*
       - *Mensaje*: ${errorLog.message || "Error desconocido"}
       - *Código de estado*: ${errorLog.status || 500}
