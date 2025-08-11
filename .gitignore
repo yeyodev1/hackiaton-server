@@ -144,4 +144,8 @@ dist
 credentials
 pnpm-lock****
 
+# Uploads directory - ignore files but keep directory
+uploads/*
+!uploads/.gitkeep
+
 # End of https://www.toptal.com/developers/gitignore/api/node
