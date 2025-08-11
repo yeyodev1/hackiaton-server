@@ -90,9 +90,30 @@ export async function uploadDocumentController(req: Request, res: Response, next
         // Continue without text extraction
       }
 
-      // For demo purposes, skip Google Drive and use local file URL
+      // Initialize Google Drive service and upload file, then delete local file
+      const credentialsPath = path.join(process.cwd(), 'google-credentials.json')
+      const driveService = new GoogleDriveService(credentialsPath, GOOGLE_DRIVE_FOLDER_ID)
+
+      // Ensure workspace folder exists on Drive
+      const workspaceFolderId = await driveService.ensureSubfolder(`workspace_${workspace._id}`)
+
+      // Prepare filename and upload
       const fileName = `${documentType}_${Date.now()}_${req.file.originalname}`
-      const documentUrl = `/uploads/${req.file.filename}` // Local file URL
+      let documentUrl = ''
+      try {
+        documentUrl = await driveService.uploadFileToSubfolder(
+          req.file.path,
+          fileName,
+          workspaceFolderId
+        )
+      } finally {
+        // Always attempt to remove local file
+        try {
+          await fs.unlink(req.file.path)
+        } catch (_) {
+          // Ignore cleanup errors
+        }
+      }
 
       // Create document record in workspace
       const documentRecord = {
@@ -118,13 +139,6 @@ export async function uploadDocumentController(req: Request, res: Response, next
         },
         { new: true }
       )
-
-      // Clean up uploaded file
-      try {
-        await fs.unlink(req.file.path)
-      } catch (cleanupError) {
-        // File cleanup failed, continue
-      }
 
       res.status(HttpStatusCode.Created).send({
         success: true,
