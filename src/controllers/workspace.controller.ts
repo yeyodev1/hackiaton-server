@@ -99,7 +99,17 @@ export async function updateWorkspaceCountryController(req: Request, res: Respon
     try {
       const decoded = jwt.verify(token, JWT_SECRET) as DecodedJWT
       
-      // Update workspace with selected country
+      // Generate file paths for legal documents based on selected country
+      const basePath = path.join(process.cwd(), 'src', 'utils', country)
+      const legalDocumentPaths = {
+        constitution: country !== 'others' ? path.join(basePath, 'constitucion.pdf') : selectedCountryInfo.legalDocuments.constitution,
+        procurementLaw: country !== 'others' ? path.join(basePath, 'ley_contrataciones.pdf') : selectedCountryInfo.legalDocuments.procurementLaw,
+        procurementRegulation: country !== 'others' ? path.join(basePath, 'reglamento_ley_contrataciones.pdf') : selectedCountryInfo.legalDocuments.procurementRegulation,
+        laborCode: selectedCountryInfo.legalDocuments.laborCode,
+        authority: selectedCountryInfo.legalDocuments.authority
+      }
+      
+      // Update workspace with selected country and file paths
       const workspace = await models.Workspace.findOneAndUpdate(
         {
           ownerId: decoded.userId,
@@ -110,11 +120,11 @@ export async function updateWorkspaceCountryController(req: Request, res: Respon
             name: selectedCountryInfo.name,
             code: selectedCountryInfo.code
           },
-          'settings.legalDocuments.constitution': selectedCountryInfo.legalDocuments.constitution,
-          'settings.legalDocuments.procurementLaw': selectedCountryInfo.legalDocuments.procurementLaw,
-          'settings.legalDocuments.procurementRegulation': selectedCountryInfo.legalDocuments.procurementRegulation,
-          'settings.legalDocuments.laborCode': selectedCountryInfo.legalDocuments.laborCode,
-          'settings.legalDocuments.authority': selectedCountryInfo.legalDocuments.authority,
+          'settings.legalDocuments.constitution': legalDocumentPaths.constitution,
+          'settings.legalDocuments.procurementLaw': legalDocumentPaths.procurementLaw,
+          'settings.legalDocuments.procurementRegulation': legalDocumentPaths.procurementRegulation,
+          'settings.legalDocuments.laborCode': legalDocumentPaths.laborCode,
+          'settings.legalDocuments.authority': legalDocumentPaths.authority,
           updatedAt: new Date()
         },
         { new: true }
@@ -130,8 +140,13 @@ export async function updateWorkspaceCountryController(req: Request, res: Respon
 
       res.status(HttpStatusCode.Ok).send({
         success: true,
-        message: 'Workspace country updated successfully',
-        workspace
+        message: 'Workspace country updated successfully with legal documents',
+        workspace,
+        legalDocumentPaths: country !== 'others' ? {
+          constitution: legalDocumentPaths.constitution,
+          procurementLaw: legalDocumentPaths.procurementLaw,
+          procurementRegulation: legalDocumentPaths.procurementRegulation
+        } : null
       })
       return
     } catch (jwtError) {
