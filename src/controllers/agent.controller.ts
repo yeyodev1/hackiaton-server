@@ -58,16 +58,19 @@ export async function chatWithAgentController(req: Request, res: Response, next:
         return
       }
 
-      // Get relevant analyses if provided
-      let analyses: IDocumentAnalysis[] = []
+      // Get all completed analyses from workspace for full context
+      let analyses: IDocumentAnalysis[] = await models.DocumentAnalysis.find({
+        workspaceId: workspaceId,
+        status: 'completed'
+      }).populate('createdBy', 'name email')
+
+      // If specific analysisIds provided, filter to those
       if (analysisIds && analysisIds.length > 0) {
         const validAnalysisIds = analysisIds.filter(id => Types.ObjectId.isValid(id))
         if (validAnalysisIds.length > 0) {
-          analyses = await models.DocumentAnalysis.find({
-            _id: { $in: validAnalysisIds },
-            workspaceId: workspaceId,
-            status: 'completed'
-          }).populate('createdBy', 'name email')
+          analyses = analyses.filter(analysis => 
+            validAnalysisIds.includes((analysis._id as any).toString())
+          )
         }
       }
 
@@ -87,7 +90,7 @@ export async function chatWithAgentController(req: Request, res: Response, next:
       // Get workspace documents for context
       const workspaceDocuments = workspace.settings?.documents || []
       
-      // Prepare context for the agent
+      // Prepare enhanced context for the agent
       const context = {
         analyses: analyses,
         documents: workspaceDocuments,
@@ -95,7 +98,16 @@ export async function chatWithAgentController(req: Request, res: Response, next:
           name: workspace.name,
           country: workspace.settings?.country,
           legalDocuments: workspace.settings?.legalDocuments
-        }
+        },
+        // Include full analysis content for better context
+        fullAnalyses: analyses.map(analysis => ({
+          id: (analysis._id as any).toString(),
+          documentName: analysis.documentName,
+          aiAnalysis: analysis.aiAnalysis,
+          rucValidation: analysis.rucValidation,
+          createdAt: analysis.createdAt,
+          createdBy: analysis.createdBy
+        }))
       }
 
       // Build conversation history (simplified for now)
@@ -138,6 +150,118 @@ export async function chatWithAgentController(req: Request, res: Response, next:
     return
   } catch (error: unknown) {
     console.error('Error in chatWithAgentController:', error)
+    next(error)
+  }
+}
+
+export async function chatWithDocumentController(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { analysisId } = req.params
+    const { message }: { message: string } = req.body
+
+    if (!message) {
+      res.status(HttpStatusCode.BadRequest).send({
+        success: false,
+        message: 'Message is required'
+      })
+      return
+    }
+
+    if (!Types.ObjectId.isValid(analysisId)) {
+      res.status(HttpStatusCode.BadRequest).send({
+        success: false,
+        message: 'Valid analysis ID is required'
+      })
+      return
+    }
+
+    // Get the specific analysis
+    const analysis = await models.DocumentAnalysis.findOne({
+      _id: analysisId,
+      status: 'completed'
+    }).populate('createdBy', 'name email')
+
+    if (!analysis) {
+      res.status(HttpStatusCode.NotFound).send({
+        success: false,
+        message: 'Analysis not found or not completed'
+      })
+      return
+    }
+
+    // Verify workspace access
+    const workspace = await models.Workspace.findOne({
+      _id: analysis.workspaceId,
+      $or: [
+        { ownerId: req.user!.userId },
+        { 'members.userId': req.user!.userId }
+      ],
+      deletedAt: null
+    })
+
+    if (!workspace) {
+      res.status(HttpStatusCode.NotFound).send({
+        success: false,
+        message: 'Workspace not found or access denied'
+      })
+      return
+    }
+
+    // Initialize LLM service
+    const llmService = new LLMService()
+    
+    // Check LLM service health
+    const healthCheck = await llmService.healthCheck()
+    if (healthCheck.status === 'unhealthy') {
+      res.status(HttpStatusCode.ServiceUnavailable).send({
+        success: false,
+        message: 'AI service is currently unavailable. Please try again later.'
+      })
+      return
+    }
+
+    // Prepare focused context for the specific document
+    const context = {
+      workspace: {
+        name: workspace.name,
+        country: workspace.settings?.country,
+        legalDocuments: workspace.settings?.legalDocuments
+      },
+      focusedAnalysis: {
+        id: (analysis._id as any).toString(),
+        documentName: analysis.documentName,
+        aiAnalysis: analysis.aiAnalysis,
+        rucValidation: analysis.rucValidation,
+        createdAt: analysis.createdAt,
+        createdBy: analysis.createdBy
+      }
+    }
+
+    // Build conversation with document-specific context
+    const messages = [
+      {
+        role: 'user' as const,
+        content: message
+      }
+    ]
+
+    // Get AI response with document-specific context
+    const aiResponse = await llmService.chatWithDocument(messages, context)
+
+    res.status(HttpStatusCode.Ok).send({
+      success: true,
+      message: 'Document chat response generated successfully',
+      response: {
+        content: aiResponse,
+        timestamp: new Date(),
+        documentName: analysis.documentName,
+        analysisId: (analysis._id as any).toString()
+      },
+      llmProvider: healthCheck.preferredProvider
+    })
+    return
+  } catch (error: unknown) {
+    console.error('Error in chatWithDocumentController:', error)
     next(error)
   }
 }
@@ -214,9 +338,7 @@ export async function getDocumentInsightsController(req: Request, res: Response,
         id: analysis._id,
         documentName: analysis.documentName,
         documentType: analysis.documentType,
-        analysisDate: analysis.analysisDate,
-        overallRiskScore: analysis.overallRiskScore,
-        overallComplianceScore: analysis.overallComplianceScore
+        analysisDate: analysis.analysisDate
       },
       llmProvider: healthCheck.preferredProvider
     })
@@ -309,9 +431,7 @@ export async function getComparisonInsightsController(req: Request, res: Respons
         id: analysis._id,
         documentName: analysis.documentName,
         documentType: analysis.documentType,
-        analysisDate: analysis.analysisDate,
-        overallRiskScore: analysis.overallRiskScore,
-        overallComplianceScore: analysis.overallComplianceScore
+        analysisDate: analysis.analysisDate
       })),
       llmProvider: healthCheck.preferredProvider
     })
