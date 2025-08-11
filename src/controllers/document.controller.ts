@@ -1,5 +1,4 @@
 import type { Request, Response, NextFunction } from 'express'
-import jwt from 'jsonwebtoken'
 import { Types } from 'mongoose'
 import { HttpStatusCode } from 'axios'
 import models from '../models'
@@ -8,17 +7,7 @@ import path from 'path'
 import fs from 'fs/promises'
 import pdfParse from 'pdf-parse'
 
-// JWT Configuration
-const JWT_SECRET: string = process.env.JWT_SECRET || 'your-secret-key'
 const GOOGLE_DRIVE_FOLDER_ID = '1XMOlJCE74sqDdv8rh7chl4YMlKfoAWPB'
-
-// Interface for JWT payload
-interface DecodedJWT {
-  userId: string
-  email: string
-  iat: number
-  exp: number
-}
 
 // Interface for document upload request
 interface DocumentUploadRequest {
@@ -29,17 +18,8 @@ interface DocumentUploadRequest {
 
 export async function uploadDocumentController(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const authHeader = req.headers.authorization
     const { documentType, title, description }: DocumentUploadRequest = req.body
     
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      res.status(HttpStatusCode.Unauthorized).send({
-        success: false,
-        message: 'Access token required'
-      })
-      return
-    }
-
     if (!req.file) {
       res.status(HttpStatusCode.BadRequest).send({
         success: false,
@@ -56,16 +36,11 @@ export async function uploadDocumentController(req: Request, res: Response, next
       return
     }
 
-    const token = authHeader.substring(7)
-
-    try {
-      const decoded = jwt.verify(token, JWT_SECRET) as DecodedJWT
-      
-      // Find user's workspace
-      const workspace = await models.Workspace.findOne({
-        ownerId: decoded.userId,
-        deletedAt: null
-      })
+    // Find user's workspace
+    const workspace = await models.Workspace.findOne({
+      ownerId: req.user!.userId,
+      deletedAt: null
+    })
 
       if (!workspace) {
         res.status(HttpStatusCode.NotFound).send({
@@ -125,7 +100,7 @@ export async function uploadDocumentController(req: Request, res: Response, next
         description: description || '',
         extractedText: extractedText,
         uploadedAt: new Date(),
-        uploadedBy: decoded.userId
+        uploadedBy: req.user!.userId
       }
 
       // Update workspace with new document
@@ -154,13 +129,6 @@ export async function uploadDocumentController(req: Request, res: Response, next
         }
       })
       return
-    } catch (jwtError) {
-      res.status(HttpStatusCode.Unauthorized).send({
-        success: false,
-        message: 'Invalid or expired token'
-      })
-      return
-    }
   } catch (error: unknown) {
     next(error)
   }
@@ -168,26 +136,11 @@ export async function uploadDocumentController(req: Request, res: Response, next
 
 export async function getWorkspaceDocumentsController(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const authHeader = req.headers.authorization
-    
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      res.status(HttpStatusCode.Unauthorized).send({
-        success: false,
-        message: 'Access token required'
-      })
-      return
-    }
-
-    const token = authHeader.substring(7)
-
-    try {
-      const decoded = jwt.verify(token, JWT_SECRET) as DecodedJWT
-      
-      // Find user's workspace
-      const workspace = await models.Workspace.findOne({
-        ownerId: decoded.userId,
-        deletedAt: null
-      })
+    // Find user's workspace
+    const workspace = await models.Workspace.findOne({
+      ownerId: req.user!.userId,
+      deletedAt: null
+    })
 
       if (!workspace) {
         res.status(HttpStatusCode.NotFound).send({
@@ -212,13 +165,6 @@ export async function getWorkspaceDocumentsController(req: Request, res: Respons
         }))
       })
       return
-    } catch (jwtError) {
-      res.status(HttpStatusCode.Unauthorized).send({
-        success: false,
-        message: 'Invalid or expired token'
-      })
-      return
-    }
   } catch (error: unknown) {
     next(error)
   }
@@ -226,17 +172,8 @@ export async function getWorkspaceDocumentsController(req: Request, res: Respons
 
 export async function deleteDocumentController(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const authHeader = req.headers.authorization
     const { documentId } = req.params
     
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      res.status(HttpStatusCode.Unauthorized).send({
-        success: false,
-        message: 'Access token required'
-      })
-      return
-    }
-
     if (!documentId) {
       res.status(HttpStatusCode.BadRequest).send({
         success: false,
@@ -245,18 +182,13 @@ export async function deleteDocumentController(req: Request, res: Response, next
       return
     }
 
-    const token = authHeader.substring(7)
-
-    try {
-      const decoded = jwt.verify(token, JWT_SECRET) as DecodedJWT
-      
-      // Find user's workspace and remove document
-      const workspace = await models.Workspace.findOneAndUpdate(
-        {
-          ownerId: decoded.userId,
-          deletedAt: null,
-          'settings.documents.id': documentId
-        },
+    // Find user's workspace and remove document
+    const workspace = await models.Workspace.findOneAndUpdate(
+      {
+        ownerId: req.user!.userId,
+        deletedAt: null,
+        'settings.documents.id': documentId
+      },
         {
           $pull: {
             'settings.documents': { id: documentId }
@@ -279,13 +211,6 @@ export async function deleteDocumentController(req: Request, res: Response, next
         message: 'Document deleted successfully'
       })
       return
-    } catch (jwtError) {
-      res.status(HttpStatusCode.Unauthorized).send({
-        success: false,
-        message: 'Invalid or expired token'
-      })
-      return
-    }
   } catch (error: unknown) {
     next(error)
   }

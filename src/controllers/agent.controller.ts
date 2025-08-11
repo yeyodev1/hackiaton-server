@@ -1,21 +1,9 @@
 import type { Request, Response, NextFunction } from 'express'
-import jwt from 'jsonwebtoken'
 import { Types } from 'mongoose'
 import { HttpStatusCode } from 'axios'
 import models from '../models'
 import LLMService from '../services/llm.service'
 import type { IDocumentAnalysis } from '../models/analysis.model'
-
-// JWT Configuration
-const JWT_SECRET: string = process.env.JWT_SECRET || 'your-secret-key'
-
-// Interface for JWT payload
-interface DecodedJWT {
-  userId: string
-  email: string
-  iat: number
-  exp: number
-}
 
 // Interface for chat message
 interface ChatMessage {
@@ -34,16 +22,7 @@ interface AgentChatRequest {
 
 export async function chatWithAgentController(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const authHeader = req.headers.authorization
     const { message, workspaceId, analysisIds, conversationId }: AgentChatRequest = req.body
-    
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      res.status(HttpStatusCode.Unauthorized).send({
-        success: false,
-        message: 'Access token required'
-      })
-      return
-    }
 
     if (!message || !workspaceId) {
       res.status(HttpStatusCode.BadRequest).send({
@@ -61,20 +40,15 @@ export async function chatWithAgentController(req: Request, res: Response, next:
       return
     }
 
-    const token = authHeader.substring(7)
-
-    try {
-      const decoded = jwt.verify(token, JWT_SECRET) as DecodedJWT
-      
-      // Verify workspace access
-      const workspace = await models.Workspace.findOne({
-        _id: workspaceId,
-        $or: [
-          { ownerId: decoded.userId },
-          { 'members.userId': decoded.userId }
-        ],
-        deletedAt: null
-      })
+    // Verify workspace access
+    const workspace = await models.Workspace.findOne({
+      _id: workspaceId,
+      $or: [
+        { ownerId: req.user!.userId },
+        { 'members.userId': req.user!.userId }
+      ],
+      deletedAt: null
+    })
 
       if (!workspace) {
         res.status(HttpStatusCode.NotFound).send({
@@ -141,35 +115,27 @@ export async function chatWithAgentController(req: Request, res: Response, next:
         aiResponse: aiResponse,
         timestamp: new Date(),
         workspaceId: workspaceId,
-        userId: decoded.userId,
+        userId: req.user!.userId,
         analysisIds: analysisIds || [],
         conversationId: conversationId || new Types.ObjectId().toString()
       }
 
-      res.status(HttpStatusCode.Ok).send({
-        success: true,
-        message: 'Agent response generated successfully',
-        response: {
-          content: aiResponse,
-          timestamp: new Date(),
-          conversationId: conversationEntry.conversationId,
-          context: {
-            analysesCount: analyses.length,
-            workspaceName: workspace.name,
-            country: workspace.settings?.country?.name
-          }
-        },
-        llmProvider: healthCheck.preferredProvider
-      })
-      return
-
-    } catch (jwtError) {
-      res.status(HttpStatusCode.Unauthorized).send({
-        success: false,
-        message: 'Invalid or expired token'
-      })
-      return
-    }
+    res.status(HttpStatusCode.Ok).send({
+      success: true,
+      message: 'Agent response generated successfully',
+      response: {
+        content: aiResponse,
+        timestamp: new Date(),
+        conversationId: conversationEntry.conversationId,
+        context: {
+          analysesCount: analyses.length,
+          workspaceName: workspace.name,
+          country: workspace.settings?.country?.name
+        }
+      },
+      llmProvider: healthCheck.preferredProvider
+    })
+    return
   } catch (error: unknown) {
     console.error('Error in chatWithAgentController:', error)
     next(error)
@@ -178,17 +144,8 @@ export async function chatWithAgentController(req: Request, res: Response, next:
 
 export async function getDocumentInsightsController(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const authHeader = req.headers.authorization
     const { analysisId } = req.params
     const { question } = req.query
-    
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      res.status(HttpStatusCode.Unauthorized).send({
-        success: false,
-        message: 'Access token required'
-      })
-      return
-    }
 
     if (!analysisId || !Types.ObjectId.isValid(analysisId)) {
       res.status(HttpStatusCode.BadRequest).send({
@@ -198,34 +155,29 @@ export async function getDocumentInsightsController(req: Request, res: Response,
       return
     }
 
-    const token = authHeader.substring(7)
+    // Get the analysis
+    const analysis = await models.DocumentAnalysis.findOne({
+      _id: analysisId,
+      status: 'completed'
+    }).populate('workspaceId').populate('createdBy', 'name email')
 
-    try {
-      const decoded = jwt.verify(token, JWT_SECRET) as DecodedJWT
-      
-      // Get the analysis
-      const analysis = await models.DocumentAnalysis.findOne({
-        _id: analysisId,
-        status: 'completed'
-      }).populate('workspaceId').populate('createdBy', 'name email')
-
-      if (!analysis) {
-        res.status(HttpStatusCode.NotFound).send({
-          success: false,
-          message: 'Analysis not found'
-        })
-        return
-      }
-
-      // Verify workspace access
-      const workspace = await models.Workspace.findOne({
-        _id: analysis.workspaceId,
-        $or: [
-          { ownerId: decoded.userId },
-          { 'members.userId': decoded.userId }
-        ],
-        deletedAt: null
+    if (!analysis) {
+      res.status(HttpStatusCode.NotFound).send({
+        success: false,
+        message: 'Analysis not found'
       })
+      return
+    }
+
+    // Verify workspace access
+    const workspace = await models.Workspace.findOne({
+      _id: analysis.workspaceId,
+      $or: [
+        { ownerId: req.user!.userId },
+        { 'members.userId': req.user!.userId }
+      ],
+      deletedAt: null
+    })
 
       if (!workspace) {
         res.status(HttpStatusCode.Forbidden).send({
@@ -254,29 +206,21 @@ export async function getDocumentInsightsController(req: Request, res: Response,
         question as string
       )
 
-      res.status(HttpStatusCode.Ok).send({
-        success: true,
-        message: 'Document insights generated successfully',
-        insights,
-        analysis: {
-          id: analysis._id,
-          documentName: analysis.documentName,
-          documentType: analysis.documentType,
-          analysisDate: analysis.analysisDate,
-          overallRiskScore: analysis.overallRiskScore,
-          overallComplianceScore: analysis.overallComplianceScore
-        },
-        llmProvider: healthCheck.preferredProvider
-      })
-      return
-
-    } catch (jwtError) {
-      res.status(HttpStatusCode.Unauthorized).send({
-        success: false,
-        message: 'Invalid or expired token'
-      })
-      return
-    }
+    res.status(HttpStatusCode.Ok).send({
+      success: true,
+      message: 'Document insights generated successfully',
+      insights,
+      analysis: {
+        id: analysis._id,
+        documentName: analysis.documentName,
+        documentType: analysis.documentType,
+        analysisDate: analysis.analysisDate,
+        overallRiskScore: analysis.overallRiskScore,
+        overallComplianceScore: analysis.overallComplianceScore
+      },
+      llmProvider: healthCheck.preferredProvider
+    })
+    return
   } catch (error: unknown) {
     console.error('Error in getDocumentInsightsController:', error)
     next(error)
@@ -285,17 +229,8 @@ export async function getDocumentInsightsController(req: Request, res: Response,
 
 export async function getComparisonInsightsController(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const authHeader = req.headers.authorization
     const { workspaceId } = req.params
     const { analysisIds, question } = req.body
-    
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      res.status(HttpStatusCode.Unauthorized).send({
-        success: false,
-        message: 'Access token required'
-      })
-      return
-    }
 
     if (!workspaceId || !Types.ObjectId.isValid(workspaceId)) {
       res.status(HttpStatusCode.BadRequest).send({
@@ -313,20 +248,15 @@ export async function getComparisonInsightsController(req: Request, res: Respons
       return
     }
 
-    const token = authHeader.substring(7)
-
-    try {
-      const decoded = jwt.verify(token, JWT_SECRET) as DecodedJWT
-      
-      // Verify workspace access
-      const workspace = await models.Workspace.findOne({
-        _id: workspaceId,
-        $or: [
-          { ownerId: decoded.userId },
-          { 'members.userId': decoded.userId }
-        ],
-        deletedAt: null
-      })
+    // Verify workspace access
+    const workspace = await models.Workspace.findOne({
+      _id: workspaceId,
+      $or: [
+        { ownerId: req.user!.userId },
+        { 'members.userId': req.user!.userId }
+      ],
+      deletedAt: null
+    })
 
       if (!workspace) {
         res.status(HttpStatusCode.NotFound).send({
@@ -371,29 +301,21 @@ export async function getComparisonInsightsController(req: Request, res: Respons
         question
       )
 
-      res.status(HttpStatusCode.Ok).send({
-        success: true,
-        message: 'Comparison insights generated successfully',
-        insights,
-        comparedAnalyses: analyses.map(analysis => ({
-          id: analysis._id,
-          documentName: analysis.documentName,
-          documentType: analysis.documentType,
-          analysisDate: analysis.analysisDate,
-          overallRiskScore: analysis.overallRiskScore,
-          overallComplianceScore: analysis.overallComplianceScore
-        })),
-        llmProvider: healthCheck.preferredProvider
-      })
-      return
-
-    } catch (jwtError) {
-      res.status(HttpStatusCode.Unauthorized).send({
-        success: false,
-        message: 'Invalid or expired token'
-      })
-      return
-    }
+    res.status(HttpStatusCode.Ok).send({
+      success: true,
+      message: 'Comparison insights generated successfully',
+      insights,
+      comparedAnalyses: analyses.map(analysis => ({
+        id: analysis._id,
+        documentName: analysis.documentName,
+        documentType: analysis.documentType,
+        analysisDate: analysis.analysisDate,
+        overallRiskScore: analysis.overallRiskScore,
+        overallComplianceScore: analysis.overallComplianceScore
+      })),
+      llmProvider: healthCheck.preferredProvider
+    })
+    return
   } catch (error: unknown) {
     console.error('Error in getComparisonInsightsController:', error)
     next(error)

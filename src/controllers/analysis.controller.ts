@@ -1,21 +1,9 @@
 import type { Request, Response, NextFunction } from 'express'
-import jwt from 'jsonwebtoken'
 import { Types } from 'mongoose'
 import { HttpStatusCode } from 'axios'
 import models from '../models'
 import path from 'path'
 import fs from 'fs/promises'
-
-// JWT Configuration
-const JWT_SECRET: string = process.env.JWT_SECRET || 'your-secret-key'
-
-// Interface for JWT payload
-interface DecodedJWT {
-  userId: string
-  email: string
-  iat: number
-  exp: number
-}
 
 // Interface for document analysis result
 interface DocumentAnalysisResult {
@@ -98,16 +86,7 @@ interface ComparativeAnalysis {
 
 export async function analyzeDocumentController(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const authHeader = req.headers.authorization
     const { workspaceId, documentType } = req.body
-    
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      res.status(HttpStatusCode.Unauthorized).send({
-        success: false,
-        message: 'Access token required'
-      })
-      return
-    }
 
     if (!req.file) {
       res.status(HttpStatusCode.BadRequest).send({
@@ -132,21 +111,16 @@ export async function analyzeDocumentController(req: Request, res: Response, nex
       })
       return
     }
-
-    const token = authHeader.substring(7)
-
-    try {
-      const decoded = jwt.verify(token, JWT_SECRET) as DecodedJWT
       
-      // Verify workspace access
-      const workspace = await models.Workspace.findOne({
-        _id: workspaceId,
-        $or: [
-          { ownerId: decoded.userId },
-          { 'members.userId': decoded.userId }
-        ],
-        deletedAt: null
-      })
+    // Verify workspace access
+    const workspace = await models.Workspace.findOne({
+      _id: workspaceId,
+      $or: [
+        { ownerId: req.user!.userId },
+        { 'members.userId': req.user!.userId }
+      ],
+      deletedAt: null
+    })
 
       if (!workspace) {
         res.status(HttpStatusCode.NotFound).send({
@@ -183,7 +157,7 @@ export async function analyzeDocumentController(req: Request, res: Response, nex
         overallComplianceScore: analysisResult.overallComplianceScore,
         status: 'completed',
         processingTime: processingTime,
-        createdBy: decoded.userId
+        createdBy: req.user!.userId
       })
 
       // Update workspace usage
@@ -198,24 +172,17 @@ export async function analyzeDocumentController(req: Request, res: Response, nex
       // Update analysis result with database ID
       analysisResult.documentId = (savedAnalysis._id as Types.ObjectId).toString()
 
-      res.status(HttpStatusCode.Ok).send({
-        success: true,
-        message: 'Document analyzed successfully',
-        analysis: analysisResult,
-        workspace: {
-          id: workspace._id,
-          name: workspace.name,
-          country: workspace.settings.country
-        }
-      })
-      return
-    } catch (jwtError) {
-      res.status(HttpStatusCode.Unauthorized).send({
-        success: false,
-        message: 'Invalid or expired token'
-      })
-      return
-    }
+    res.status(HttpStatusCode.Ok).send({
+      success: true,
+      message: 'Document analyzed successfully',
+      analysis: analysisResult,
+      workspace: {
+        id: workspace._id,
+        name: workspace.name,
+        country: workspace.settings.country
+      }
+    })
+    return
   } catch (error: unknown) {
     console.error('Error in analyzeDocumentController:', error)
     next(error)
@@ -224,16 +191,7 @@ export async function analyzeDocumentController(req: Request, res: Response, nex
 
 export async function getAnalysisByIdController(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const authHeader = req.headers.authorization
     const { analysisId } = req.params
-    
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      res.status(HttpStatusCode.Unauthorized).send({
-        success: false,
-        message: 'Access token required'
-      })
-      return
-    }
 
     if (!analysisId || !Types.ObjectId.isValid(analysisId)) {
       res.status(HttpStatusCode.BadRequest).send({
@@ -242,11 +200,6 @@ export async function getAnalysisByIdController(req: Request, res: Response, nex
       })
       return
     }
-
-    const token = authHeader.substring(7)
-
-    try {
-      const decoded = jwt.verify(token, JWT_SECRET) as DecodedJWT
       
       // Get analysis and verify workspace access
       const analysis = await models.DocumentAnalysis.findById(analysisId)
@@ -262,10 +215,10 @@ export async function getAnalysisByIdController(req: Request, res: Response, nex
         return
       }
 
-      // Verify workspace access
-      const workspace = analysis.workspaceId as any
-      const hasAccess = workspace.ownerId.toString() === decoded.userId ||
-                       workspace.members.some((member: any) => member.userId.toString() === decoded.userId)
+    // Verify workspace access
+    const workspace = analysis.workspaceId as any
+    const hasAccess = workspace.ownerId.toString() === req.user!.userId ||
+                     workspace.members.some((member: any) => member.userId.toString() === req.user!.userId)
 
       if (!hasAccess) {
         res.status(HttpStatusCode.Forbidden).send({
@@ -275,19 +228,12 @@ export async function getAnalysisByIdController(req: Request, res: Response, nex
         return
       }
 
-      res.status(HttpStatusCode.Ok).send({
-        success: true,
-        message: 'Analysis retrieved successfully',
-        analysis
-      })
-      return
-    } catch (jwtError) {
-      res.status(HttpStatusCode.Unauthorized).send({
-        success: false,
-        message: 'Invalid or expired token'
-      })
-      return
-    }
+    res.status(HttpStatusCode.Ok).send({
+      success: true,
+      message: 'Analysis retrieved successfully',
+      analysis
+    })
+    return
   } catch (error: unknown) {
     console.error('Error in getAnalysisByIdController:', error)
     next(error)
@@ -296,17 +242,8 @@ export async function getAnalysisByIdController(req: Request, res: Response, nex
 
 export async function getWorkspaceAnalysesController(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const authHeader = req.headers.authorization
     const { workspaceId } = req.params
     const { page = 1, limit = 10, documentType, status } = req.query
-    
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      res.status(HttpStatusCode.Unauthorized).send({
-        success: false,
-        message: 'Access token required'
-      })
-      return
-    }
 
     if (!workspaceId || !Types.ObjectId.isValid(workspaceId)) {
       res.status(HttpStatusCode.BadRequest).send({
@@ -315,21 +252,16 @@ export async function getWorkspaceAnalysesController(req: Request, res: Response
       })
       return
     }
-
-    const token = authHeader.substring(7)
-
-    try {
-      const decoded = jwt.verify(token, JWT_SECRET) as DecodedJWT
       
-      // Verify workspace access
-      const workspace = await models.Workspace.findOne({
-        _id: workspaceId,
-        $or: [
-          { ownerId: decoded.userId },
-          { 'members.userId': decoded.userId }
-        ],
-        deletedAt: null
-      })
+    // Verify workspace access
+    const workspace = await models.Workspace.findOne({
+      _id: workspaceId,
+      $or: [
+        { ownerId: req.user!.userId },
+        { 'members.userId': req.user!.userId }
+      ],
+      deletedAt: null
+    })
 
       if (!workspace) {
         res.status(HttpStatusCode.NotFound).send({
@@ -366,31 +298,24 @@ export async function getWorkspaceAnalysesController(req: Request, res: Response
 
       const totalPages = Math.ceil(totalCount / limitNum)
 
-      res.status(HttpStatusCode.Ok).send({
-        success: true,
-        message: 'Workspace analyses retrieved successfully',
-        analyses,
-        pagination: {
-          currentPage: pageNum,
-          totalPages,
-          totalCount,
-          hasNextPage: pageNum < totalPages,
-          hasPrevPage: pageNum > 1
-        },
-        workspace: {
-          id: workspace._id,
-          name: workspace.name,
-          country: workspace.settings.country
-        }
-      })
-      return
-    } catch (jwtError) {
-      res.status(HttpStatusCode.Unauthorized).send({
-        success: false,
-        message: 'Invalid or expired token'
-      })
-      return
-    }
+    res.status(HttpStatusCode.Ok).send({
+      success: true,
+      message: 'Workspace analyses retrieved successfully',
+      analyses,
+      pagination: {
+        currentPage: pageNum,
+        totalPages,
+        totalCount,
+        hasNextPage: pageNum < totalPages,
+        hasPrevPage: pageNum > 1
+      },
+      workspace: {
+        id: workspace._id,
+        name: workspace.name,
+        country: workspace.settings.country
+      }
+    })
+    return
   } catch (error: unknown) {
     console.error('Error in getWorkspaceAnalysesController:', error)
     next(error)
@@ -399,16 +324,7 @@ export async function getWorkspaceAnalysesController(req: Request, res: Response
 
 export async function compareDocumentsController(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const authHeader = req.headers.authorization
     const { workspaceId, documentIds } = req.body
-    
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      res.status(HttpStatusCode.Unauthorized).send({
-        success: false,
-        message: 'Access token required'
-      })
-      return
-    }
 
     if (!workspaceId || !Types.ObjectId.isValid(workspaceId)) {
       res.status(HttpStatusCode.BadRequest).send({
@@ -425,21 +341,16 @@ export async function compareDocumentsController(req: Request, res: Response, ne
       })
       return
     }
-
-    const token = authHeader.substring(7)
-
-    try {
-      const decoded = jwt.verify(token, JWT_SECRET) as DecodedJWT
       
-      // Verify workspace access
-      const workspace = await models.Workspace.findOne({
-        _id: workspaceId,
-        $or: [
-          { ownerId: decoded.userId },
-          { 'members.userId': decoded.userId }
-        ],
-        deletedAt: null
-      })
+    // Verify workspace access
+    const workspace = await models.Workspace.findOne({
+      _id: workspaceId,
+      $or: [
+        { ownerId: req.user!.userId },
+        { 'members.userId': req.user!.userId }
+      ],
+      deletedAt: null
+    })
 
       if (!workspace) {
         res.status(HttpStatusCode.NotFound).send({
@@ -478,24 +389,17 @@ export async function compareDocumentsController(req: Request, res: Response, ne
         updatedAt: new Date()
       })
 
-      res.status(HttpStatusCode.Ok).send({
-        success: true,
-        message: 'Documents compared successfully',
-        comparison: comparativeAnalysis,
-        workspace: {
-          id: workspace._id,
-          name: workspace.name,
-          country: workspace.settings.country
-        }
-      })
-      return
-    } catch (jwtError) {
-      res.status(HttpStatusCode.Unauthorized).send({
-        success: false,
-        message: 'Invalid or expired token'
-      })
-      return
-    }
+    res.status(HttpStatusCode.Ok).send({
+      success: true,
+      message: 'Documents compared successfully',
+      comparison: comparativeAnalysis,
+      workspace: {
+        id: workspace._id,
+        name: workspace.name,
+        country: workspace.settings.country
+      }
+    })
+    return
   } catch (error: unknown) {
     console.error('Error in compareDocumentsController:', error)
     next(error)
