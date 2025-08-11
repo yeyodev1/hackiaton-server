@@ -330,3 +330,248 @@ npm run dev
 npm run build
 npm start
 ```
+
+## AI Agent Endpoints
+
+### Chat with AI Agent
+**POST** `/api/agent/chat`
+
+Interact with the AI agent for document analysis insights and recommendations.
+
+**Headers:**
+- `Authorization: Bearer <token>`
+- `Content-Type: application/json`
+
+**Request Body:**
+```json
+{
+  "message": "What are the main risks in these documents?",
+  "workspaceId": "workspace_id",
+  "analysisIds": ["analysis_id_1", "analysis_id_2"],
+  "conversationId": "optional_conversation_id"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Agent response generated successfully",
+  "response": {
+    "content": "Based on the analysis of your documents, I've identified several key risks...",
+    "timestamp": "2024-01-15T10:30:00.000Z",
+    "conversationId": "conv_12345",
+    "context": {
+      "analysesCount": 2,
+      "workspaceName": "My Workspace",
+      "country": "Ecuador"
+    }
+  },
+  "llmProvider": "openai"
+}
+```
+
+### Get Document Insights
+**GET** `/api/agent/insights/document/:analysisId?question=your_question`
+
+Get AI-powered insights for a specific document analysis.
+
+**Headers:**
+- `Authorization: Bearer <token>`
+
+**Query Parameters:**
+- `question` (optional): Specific question about the document
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Document insights generated successfully",
+  "insights": {
+    "summary": "This document shows high compliance but has several risk areas...",
+    "keyFindings": [
+      "Missing environmental compliance clauses",
+      "Unclear payment terms in section 3.2"
+    ],
+    "recommendations": [
+      "Add environmental impact assessment requirements",
+      "Clarify payment schedule and penalties"
+    ],
+    "riskAssessment": {
+      "level": "medium",
+      "score": 6.5,
+      "factors": ["regulatory", "financial"]
+    }
+  },
+  "analysis": {
+    "id": "analysis_id",
+    "documentName": "Contract_v1.pdf",
+    "documentType": "contract",
+    "analysisDate": "2024-01-15T10:00:00.000Z",
+    "overallRiskScore": 6.5,
+    "overallComplianceScore": 8.2
+  },
+  "llmProvider": "openai"
+}
+```
+
+### Get Comparison Insights
+**POST** `/api/agent/insights/comparison/:workspaceId`
+
+Get AI-powered insights comparing multiple document analyses.
+
+**Headers:**
+- `Authorization: Bearer <token>`
+- `Content-Type: application/json`
+
+**Request Body:**
+```json
+{
+  "analysisIds": ["analysis_id_1", "analysis_id_2", "analysis_id_3"],
+  "question": "Which document has the best terms for our company?"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Comparison insights generated successfully",
+  "insights": {
+    "summary": "Comparing 3 documents, Document A offers the best overall terms...",
+    "comparison": {
+      "strengths": {
+        "Document A": ["Clear payment terms", "Strong legal protections"],
+        "Document B": ["Flexible timeline", "Lower penalties"],
+        "Document C": ["Comprehensive scope", "Good risk distribution"]
+      },
+      "weaknesses": {
+        "Document A": ["High penalties", "Rigid timeline"],
+        "Document B": ["Unclear scope", "Weak legal protections"],
+        "Document C": ["Complex payment structure", "High risk exposure"]
+      }
+    },
+    "recommendation": {
+      "preferred": "Document A",
+      "reasoning": "Best balance of legal protection and clear terms",
+      "improvements": ["Negotiate timeline flexibility", "Reduce penalty amounts"]
+    },
+    "riskMatrix": {
+      "Document A": { "legal": 8, "financial": 6, "operational": 7 },
+      "Document B": { "legal": 5, "financial": 8, "operational": 6 },
+      "Document C": { "legal": 7, "financial": 5, "operational": 8 }
+    }
+  },
+  "comparedAnalyses": [
+    {
+      "id": "analysis_id_1",
+      "documentName": "Contract_A.pdf",
+      "documentType": "contract",
+      "analysisDate": "2024-01-15T10:00:00.000Z",
+      "overallRiskScore": 6.5,
+      "overallComplianceScore": 8.2
+    }
+  ],
+  "llmProvider": "openai"
+}
+```
+
+### Check AI Service Health
+**GET** `/api/agent/health`
+
+Check the health status of AI services.
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "LLM service health check completed",
+  "health": {
+    "status": "healthy",
+    "preferredProvider": "openai",
+    "providers": {
+      "openai": {
+        "available": true,
+        "model": "gpt-4-turbo-preview",
+        "lastCheck": "2024-01-15T10:30:00.000Z"
+      },
+      "gemini": {
+        "available": true,
+        "model": "gemini-pro",
+        "lastCheck": "2024-01-15T10:30:00.000Z"
+      }
+    }
+  }
+}
+```
+
+## AI Service Configuration
+
+### Environment Variables
+Add these variables to your `.env` file:
+
+```env
+# OpenAI Configuration
+OPENAI_API_KEY=your-openai-api-key-here
+OPENAI_MODEL=gpt-4-turbo-preview
+
+# Google Gemini Configuration
+GEMINI_API_KEY=your-gemini-api-key-here
+GEMINI_MODEL=gemini-pro
+
+# Preferred AI Provider
+PREFERRED_LLM_PROVIDER=openai
+```
+
+### AI Agent Features
+
+1. **Conversational Interface**: Natural language interaction with document insights
+2. **Context-Aware Responses**: Understands workspace and document context
+3. **Multi-Document Analysis**: Compare and analyze multiple documents simultaneously
+4. **Risk Assessment**: AI-powered risk scoring and identification
+5. **Compliance Checking**: Automated compliance verification against legal frameworks
+6. **Recommendation Engine**: Actionable insights and improvement suggestions
+7. **Fallback Support**: Automatic failover between OpenAI and Gemini
+8. **Health Monitoring**: Real-time service availability checking
+
+### Usage Examples
+
+**Basic Chat:**
+```javascript
+const response = await fetch('/api/agent/chat', {
+  method: 'POST',
+  headers: {
+    'Authorization': 'Bearer ' + token,
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    message: 'What are the main compliance issues in my documents?',
+    workspaceId: 'workspace_123',
+    analysisIds: ['analysis_1', 'analysis_2']
+  })
+})
+```
+
+**Document Insights:**
+```javascript
+const insights = await fetch('/api/agent/insights/document/analysis_123?question=What are the payment terms?', {
+  headers: {
+    'Authorization': 'Bearer ' + token
+  }
+})
+```
+
+**Comparison Analysis:**
+```javascript
+const comparison = await fetch('/api/agent/insights/comparison/workspace_123', {
+  method: 'POST',
+  headers: {
+    'Authorization': 'Bearer ' + token,
+    'Content-Type': 'application/json'
+  },
+  body: JSON.stringify({
+    analysisIds: ['analysis_1', 'analysis_2', 'analysis_3'],
+    question: 'Which contract offers the best risk-reward ratio?'
+  })
+})
+```
