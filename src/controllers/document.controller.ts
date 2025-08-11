@@ -75,31 +75,24 @@ export async function uploadDocumentController(req: Request, res: Response, next
         return
       }
 
-      // Extract text content from PDF
+      // Extract text content based on file type
       let extractedText = ''
       try {
         const fileBuffer = await fs.readFile(req.file.path)
-        const pdfData = await pdfParse(fileBuffer)
-        extractedText = pdfData.text
-      } catch (pdfError) {
-        console.error('Error extracting PDF text:', pdfError)
-        // Continue without text extraction if it fails
+        
+        if (req.file.mimetype === 'application/pdf') {
+          const pdfData = await pdfParse(fileBuffer)
+          extractedText = pdfData.text
+        } else if (req.file.mimetype === 'text/plain') {
+          extractedText = fileBuffer.toString('utf-8')
+        }
+      } catch (error) {
+        // Continue without text extraction
       }
 
-      // Initialize Google Drive service
-      const credentialsPath = path.join(process.cwd(), 'google-credentials.json')
-      const driveService = new GoogleDriveService(credentialsPath, GOOGLE_DRIVE_FOLDER_ID)
-      
-      // Create workspace folder if it doesn't exist
-      const workspaceFolderId = await driveService.ensureSubfolder(`workspace_${workspace._id}`)
-      
-      // Upload the document
+      // For demo purposes, skip Google Drive and use local file URL
       const fileName = `${documentType}_${Date.now()}_${req.file.originalname}`
-      const documentUrl = await driveService.uploadFileToSubfolder(
-        req.file.path,
-        fileName,
-        workspaceFolderId
-      )
+      const documentUrl = `/uploads/${req.file.filename}` // Local file URL
 
       // Create document record in workspace
       const documentRecord = {
@@ -130,7 +123,7 @@ export async function uploadDocumentController(req: Request, res: Response, next
       try {
         await fs.unlink(req.file.path)
       } catch (cleanupError) {
-        console.error('Error cleaning up uploaded file:', cleanupError)
+        // File cleanup failed, continue
       }
 
       res.status(HttpStatusCode.Created).send({
@@ -155,7 +148,6 @@ export async function uploadDocumentController(req: Request, res: Response, next
       return
     }
   } catch (error: unknown) {
-    console.error('Error in uploadDocumentController:', error)
     next(error)
   }
 }
@@ -214,7 +206,6 @@ export async function getWorkspaceDocumentsController(req: Request, res: Respons
       return
     }
   } catch (error: unknown) {
-    console.error('Error in getWorkspaceDocumentsController:', error)
     next(error)
   }
 }
@@ -282,7 +273,6 @@ export async function deleteDocumentController(req: Request, res: Response, next
       return
     }
   } catch (error: unknown) {
-    console.error('Error in deleteDocumentController:', error)
     next(error)
   }
 }

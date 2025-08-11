@@ -495,3 +495,60 @@ export async function deleteUserController(req: Request, res: Response, next: Ne
     next(error)
   }
 }
+
+// Temporary function for demo purposes - manually verify user
+export async function manualVerifyController(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { email } = req.params
+
+    if (!email) {
+      res.status(HttpStatusCode.BadRequest).send({
+        success: false,
+        message: 'Email is required'
+      })
+      return
+    }
+
+    // Find user by email
+    const user = await models.User.findOne({ email })
+
+    if (!user) {
+      res.status(HttpStatusCode.NotFound).send({
+        success: false,
+        message: 'User not found'
+      })
+      return
+    }
+
+    // Manually verify the user
+    user.isVerified = true
+    user.verificationToken = undefined
+    user.verificationTokenExpires = undefined
+    await user.save()
+
+    res.status(HttpStatusCode.Ok).send({
+      success: true,
+      message: 'User manually verified successfully',
+      data: {
+        user: {
+          id: (user._id as Types.ObjectId).toString(),
+          name: user.name,
+          email: user.email,
+          companyName: user.companyName,
+          country: user.country,
+          isVerified: user.isVerified,
+          createdAt: user.createdAt,
+          updatedAt: user.updatedAt
+        }
+      }
+    })
+    return
+  } catch (error) {
+    console.error('Error manually verifying user:', error)
+    res.status(HttpStatusCode.InternalServerError).send({
+      success: false,
+      message: 'Internal server error'
+    })
+    return
+  }
+}

@@ -4,7 +4,8 @@ import {
   loginUserController,
   verifyUserController,
   verifyEmailController,
-  deleteUserController
+  deleteUserController,
+  manualVerifyController
 } from '../controllers/auth.controller'
 
 const router = Router()
@@ -15,5 +16,6 @@ router.post('/login', loginUserController)
 router.get('/verify-email/:token', verifyEmailController)
 router.get('/verify', verifyUserController)
 router.delete('/delete', deleteUserController)
+router.post('/manual-verify/:email', manualVerifyController)
 
 export default router
