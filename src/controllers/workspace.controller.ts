@@ -111,7 +111,10 @@ export async function updateWorkspaceCountryController(req: Request, res: Respon
             code: selectedCountryInfo.code
           },
           'settings.legalDocuments.constitution': selectedCountryInfo.legalDocuments.constitution,
-          'settings.legalDocuments.organicCode': selectedCountryInfo.legalDocuments.organicCode,
+          'settings.legalDocuments.procurementLaw': selectedCountryInfo.legalDocuments.procurementLaw,
+          'settings.legalDocuments.procurementRegulation': selectedCountryInfo.legalDocuments.procurementRegulation,
+          'settings.legalDocuments.laborCode': selectedCountryInfo.legalDocuments.laborCode,
+          'settings.legalDocuments.authority': selectedCountryInfo.legalDocuments.authority,
           updatedAt: new Date()
         },
         { new: true }
