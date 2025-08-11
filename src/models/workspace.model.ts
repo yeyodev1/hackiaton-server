@@ -14,11 +14,24 @@ export interface IWorkspaceNotifications {
   webhookUrl?: string
 }
 
+export interface IWorkspaceDocument {
+  id: string
+  name: string
+  originalName: string
+  type: 'contract' | 'pliego' | 'propuesta'
+  url: string
+  description: string
+  extractedText: string
+  uploadedAt: Date
+  uploadedBy: string
+}
+
 export interface IWorkspaceSettings {
   country: {
     name: string
     code: string
   }
+  documents?: IWorkspaceDocument[] // User uploaded documents
   legalDocuments: {
     constitution?: string // URL or file path to country constitution
     procurementLaw?: string // URL or file path to procurement law
@@ -99,6 +112,46 @@ const workspaceNotificationsSchema = new Schema<IWorkspaceNotifications>({
   }
 }, { _id: false })
 
+const workspaceDocumentSchema = new Schema<IWorkspaceDocument>({
+  id: {
+    type: String,
+    required: true
+  },
+  name: {
+    type: String,
+    required: true
+  },
+  originalName: {
+    type: String,
+    required: true
+  },
+  type: {
+    type: String,
+    enum: ['contract', 'pliego', 'propuesta'],
+    required: true
+  },
+  url: {
+    type: String,
+    required: true
+  },
+  description: {
+    type: String,
+    default: ''
+  },
+  extractedText: {
+    type: String,
+    default: ''
+  },
+  uploadedAt: {
+    type: Date,
+    required: true
+  },
+  uploadedBy: {
+    type: String,
+    required: true
+  }
+}, { _id: false })
+
 const workspaceSettingsSchema = new Schema<IWorkspaceSettings>({
   country: {
     name: {
@@ -110,6 +163,7 @@ const workspaceSettingsSchema = new Schema<IWorkspaceSettings>({
       required: true
     }
   },
+  documents: [workspaceDocumentSchema],
   legalDocuments: {
     constitution: {
       type: String,
