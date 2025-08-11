@@ -1,6 +1,7 @@
 import { Router } from 'express'
 import {
   chatWithAgentController,
+  chatWithDocumentController,
   getDocumentInsightsController,
   getComparisonInsightsController,
   getLLMHealthController
@@ -11,6 +12,9 @@ const router = Router()
 
 // Chat with AI agent
 router.post('/chat', authenticateToken, chatWithAgentController)
+
+// Chat with specific document analysis
+router.post('/chat/document/:analysisId', authenticateToken, chatWithDocumentController)
 
 // Get insights for a specific document analysis
 router.get('/insights/document/:analysisId', authenticateToken, getDocumentInsightsController)
