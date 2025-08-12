@@ -14,7 +14,8 @@ export default function createApp() {
   const whitelist = [
     "http://localhost:8100",
     "http://localhost:8080",
-    "https://legalhackiaton.netlify.app"
+    "https://legalhackiaton.netlify.app",
+    "http://localhost:5173"
   ];
 
   const corsOptions = {
