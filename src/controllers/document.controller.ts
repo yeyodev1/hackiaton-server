@@ -159,6 +159,7 @@ export async function getWorkspaceDocumentsController(req: Request, res: Respons
           id: doc.id,
           name: doc.name,
           type: doc.type,
+          url: doc.url,
           description: doc.description,
           uploadedAt: doc.uploadedAt,
           hasExtractedText: (doc.extractedText && doc.extractedText.length > 0) || false
