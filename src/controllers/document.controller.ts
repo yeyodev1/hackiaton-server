@@ -66,7 +66,7 @@ export async function uploadDocumentController(req: Request, res: Response, next
       }
 
       // Initialize Google Drive service and upload file, then delete local file
-      const credentialsPath = path.join(process.cwd(), 'dist', 'credentials', 'google-credentials.json')
+      const credentialsPath = path.join(process.cwd(), 'src', 'credentials', 'google-credentials.json')
       const driveService = new GoogleDriveService(credentialsPath, GOOGLE_DRIVE_FOLDER_ID)
 
       // Ensure workspace folder exists on Drive
