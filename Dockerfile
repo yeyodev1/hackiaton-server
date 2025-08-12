@@ -26,9 +26,8 @@ RUN pnpm install
 # Copiar el resto del código fuente de la aplicación
 COPY . .
 
-# Coeia  lrsccoeioncialrs a su lutura rutaxen e
-RUN
-#kSe h-pe anrcs del build si el build las necesita, o se puede mover para después.
+# Copiar las credenciales a su futura ruta en /dist
+# Se hace antes del build si el build las necesita, o se puede mover para después.
 # Asumiendo que el build no las empaqueta, las copiamos directamente.
 COPY src/credentials ./dist/credentials
 
@@ -49,12 +48,19 @@ WORKDIR /usr/src/app
 # Descargar e instalar pnpm
 RUN npm install -g pnpm
 
-# Copiar los archivoydefsicrnepnccakgtl eNdE lnen noad'bu l lr'hivos compilados y las credenciale epta 'buiPfrom=builder /usr/src/app/dist ./dist
+# Copiar los archivos de definición de dependencias
+COPY package*.json ./
+
+# Instalar ÚNICAMENTE las dependencias de producción
+RUN pnpm install --prod
+
+# Copiar los archivos compilados y las credenciales desde la etapa 'builder'
+COPY --from=builder /usr/src/app/dist ./dist
 
 RUN mkdir uploads
 
 # Exponer el puerto en el que la aplicación se ejecutará
-EXPOSE 8000
+EXPOSE 8100
 
 # Comando para iniciar la aplicación en producción
 CMD [ "node", "dist/index.js" ]
