@@ -236,13 +236,13 @@ export async function loginUserController(req: Request, res: Response, next: Nex
     }
 
     // Check if user is verified
-    if (!user.isVerified) {
-      res.status(HttpStatusCode.Forbidden).send({
-        success: false,
-        message: 'Tu cuenta no está verificada. Por favor verifica tu email antes de iniciar sesión.'
-      })
-      return
-    }
+    // if (!user.isVerified) {
+    //   res.status(HttpStatusCode.Forbidden).send({
+    //     success: false,
+    //     message: 'Tu cuenta no está verificada. Por favor verifica tu email antes de iniciar sesión.'
+    //   })
+    //   return
+    // }
 
     // Verify password
     const isPasswordValid = await bcrypt.compare(password, user.password)
