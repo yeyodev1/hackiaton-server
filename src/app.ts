@@ -14,11 +14,7 @@ export default function createApp() {
   const whitelist = [
     "http://localhost:8100",
     "http://localhost:8080",
-    "https://onboarding-bakano.netlify.app",
-    "https://onboarding.bakano.ec",
-    "http://localhost:5173",
-    "http://localhost:5174",
-    "https://admin.bakano.ec"
+    "https://legalhackiaton.netlify.app"
   ];
 
   const corsOptions = {
